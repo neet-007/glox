@@ -1,8 +1,6 @@
 package parser
 
 import (
-	"fmt"
-
 	"github.com/neet-007/glox/pkg/scanner"
 )
 
@@ -23,9 +21,7 @@ func (p *Parser) Parse() []Expr {
 	expressions := []Expr{}
 
 	for !p.isAtEnd() {
-		expr := p.expressionStatement()
-		fmt.Printf("expr %+v\n", expr)
-		expressions = append(expressions, expr)
+		expressions = append(expressions, p.expressionStatement())
 	}
 
 	return expressions

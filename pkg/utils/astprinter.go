@@ -18,7 +18,6 @@ func (a *AstPrinter) VisitAssignExpr(expr parser.Assign) any {
 }
 
 func (a *AstPrinter) VisitBinaryExpr(expr parser.Binary) any {
-	//fmt.Printf("here parts %+v %+v %+v\n", expr.Operator, expr.Left, expr.Right)
 	return a.parenthesize(expr.Operator.Lexeme, expr.Left, expr.Right)
 }
 

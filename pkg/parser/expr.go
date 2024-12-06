@@ -1,8 +1,6 @@
 package parser
 
 import (
-	"fmt"
-
 	"github.com/neet-007/glox/pkg/scanner"
 )
 
@@ -42,7 +40,6 @@ type Binary struct {
 }
 
 func NewBinary(left Expr, right Expr, operator scanner.Token) Binary {
-	fmt.Printf("parts %+v %+v %+v\n", left, right, operator)
 	return Binary{
 		Left:     left,
 		Right:    right,
@@ -91,7 +88,7 @@ type Logical struct {
 func NewLogical(left Expr, right Expr, operator scanner.Token) Logical {
 	return Logical{
 		Left:     left,
-		Right:    left,
+		Right:    right,
 		Operator: operator,
 	}
 }
