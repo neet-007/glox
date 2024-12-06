@@ -62,6 +62,14 @@ func (a *AstPrinter) VisitUnaryExpr(expr parser.Unary) any {
 	return a.parenthesize(expr.Operator.Lexeme, expr.Right)
 }
 
+func (a *AstPrinter) VisitPrintStmt(stmt parser.PrintStmt) any {
+	return fmt.Sprintf("(print %s)", a.parenthesize("value", stmt.Expression))
+}
+
+func (a *AstPrinter) VisitExpressionStmt(stmt parser.ExpressionStmt) any {
+	return a.parenthesize("expression", stmt.Expression)
+}
+
 /*
 	func (a *AstPrinter) VisitVariableExpr(expr Variable) any {
 		return expr.Name.Lexeme
@@ -103,9 +111,6 @@ func (a *AstPrinter) VisitUnaryExpr(expr parser.Unary) any {
 		return fmt.Sprintf("(if %s %s)", a.parenthesize("condition", stmt.Condition), a.print(stmt.ThenBranch))
 	}
 
-	func (a *AstPrinter) VisitPrintStmt(stmt Print) any {
-		return fmt.Sprintf("(print %s)", a.parenthesize("value", stmt.Expression))
-	}
 
 	func (a *AstPrinter) VisitReturnStmt(stmt Return) any {
 		if stmt.Value != nil {
@@ -125,19 +130,24 @@ func (a *AstPrinter) VisitUnaryExpr(expr parser.Unary) any {
 		return fmt.Sprintf("(while %s %s)", a.parenthesize("condition", stmt.Condition), a.print(stmt.Body))
 	}
 
-	func (a *AstPrinter) VisitExpressionStmt(stmt Expression) any {
-		return a.parenthesize("expression", stmt.Expression)
-	}
 */
-/*
-func (a *AstPrinter) print(stmt Stmt) string {
+
+func (a *AstPrinter) Print(stmts []parser.Stmt) {
+	for _, stmt := range stmts {
+		a.print(stmt)
+	}
+}
+
+func (a *AstPrinter) print(stmt parser.Stmt) {
 	if stmt == nil {
-		return "nil"
+		fmt.Println("nil")
+		return
 	}
 
 	val := stmt.Accept(a)
 	if val == nil {
-		return "nil"
+		fmt.Println("nil")
+		return
 	}
 
 	valStrting, ok := val.(string)
@@ -145,9 +155,9 @@ func (a *AstPrinter) print(stmt Stmt) string {
 		panic("not ok")
 	}
 
-	return valStrting
+	fmt.Printf("%v\n", valStrting)
 }
-*/
+
 func (a *AstPrinter) parenthesize(name string, exprs ...parser.Expr) string {
 	var builder strings.Builder
 

@@ -17,20 +17,29 @@ func NewParser(tokens []scanner.Token) *Parser {
 	}
 }
 
-func (p *Parser) Parse() []Expr {
-	expressions := []Expr{}
+func (p *Parser) Parse() []Stmt {
+	expressions := []Stmt{}
 
 	for !p.isAtEnd() {
-		expressions = append(expressions, p.expressionStatement())
+		expressions = append(expressions, p.statement())
 	}
 
 	return expressions
 }
 
-func (p *Parser) expressionStatement() Expr {
+func (p *Parser) statement() Stmt {
+	if p.match(scanner.PRINT) {
+		expr := p.expression()
+		return NewPrintStmt(expr)
+	}
+
+	return p.expressionStatement()
+}
+
+func (p *Parser) expressionStatement() Stmt {
 	expr := p.expression()
 	p.consume(scanner.SEMICOLON, "Expect ';' after expression")
-	return expr
+	return NewExpressionStmt(expr)
 }
 
 func (p *Parser) expression() Expr {

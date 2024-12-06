@@ -259,13 +259,16 @@ func (s *Scanner) number() error {
 		s.advance()
 	}
 
-	if s.match('.') {
-		for !s.isAtEnd() && s.isNumber(s.peek()) {
+	if s.peek() == '.' && s.isNumber(s.peekAhead()) {
+		s.advance()
+
+		for s.isNumber(s.peek()) {
 			s.advance()
 		}
 	}
 
-	num, err := strconv.Atoi(string(s.source[s.start:s.current]))
+	num, err := strconv.ParseFloat(string(s.source[s.start:s.current]), 64)
+
 	if err != nil {
 		return newParseError(s.line, "invalid number")
 	}
@@ -291,6 +294,10 @@ func (s *Scanner) advance() byte {
 
 func (s *Scanner) isAtEnd() bool {
 	return s.current >= s.length
+}
+
+func (s *Scanner) peekAhead() byte {
+	return s.source[s.current+1]
 }
 
 func (s *Scanner) peek() byte {
