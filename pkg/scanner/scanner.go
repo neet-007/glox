@@ -141,6 +141,16 @@ func (s *Scanner) scanToken() error {
 			break
 
 		}
+	case '!':
+		{
+			if s.match('=') {
+				s.addToken(BANG_EQUAL, nil)
+				break
+			}
+			s.addToken(BANG, nil)
+			break
+
+		}
 	case '=':
 		{
 			if s.match('=') {
@@ -209,7 +219,7 @@ func (s *Scanner) addToken(tokenType TokenType, literal any) {
 		TokenType: tokenType,
 		Literal:   literal,
 		Line:      s.line,
-		Lexem:     string(s.source[s.start:s.current]),
+		Lexeme:    string(s.source[s.start:s.current]),
 	})
 }
 

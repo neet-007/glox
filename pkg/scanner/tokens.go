@@ -91,7 +91,7 @@ var TokenNames = map[TokenType]string{
 
 type Token struct {
 	TokenType TokenType
-	Lexem     string
+	Lexeme    string
 	Line      int
 	Literal   any
 }
