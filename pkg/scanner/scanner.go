@@ -56,19 +56,18 @@ func NewScanner(source []byte) *Scanner {
 	}
 }
 
-func (s *Scanner) Scan() ([]Token, error) {
-
-	var err error
+func (s *Scanner) Scan() ([]Token, []error) {
+	errors := []error{}
 	for !s.isAtEnd() {
 		s.start = s.current
 		parseErr := s.scanToken()
-		if err != nil {
-			err = parseErr
+		if parseErr != nil {
+			errors = append(errors, parseErr)
 		}
 	}
 
 	s.addToken(EOF, nil)
-	return s.tokens, err
+	return s.tokens, errors
 }
 
 func (s *Scanner) scanToken() error {

@@ -1,0 +1,96 @@
+package lox
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+
+	"github.com/neet-007/glox/pkg/interpreter"
+	"github.com/neet-007/glox/pkg/parser"
+	"github.com/neet-007/glox/pkg/scanner"
+)
+
+type Lox struct {
+	interpreter     *interpreter.Interpreter
+	hadError        bool
+	hadRuntimeError bool
+}
+
+func NewLox() *Lox {
+	return &Lox{
+		interpreter: interpreter.NewInterpreter(),
+	}
+}
+
+func (l *Lox) Main() {
+	args := os.Args
+
+	if len(args) == 1 {
+		l.runPromt()
+		return
+
+	}
+	if len(args) == 2 {
+		l.runFile(args[1])
+		return
+	}
+
+	fmt.Fprintln(os.Stderr, "Usage: jlox [script]")
+	os.Exit(64)
+}
+
+func (l *Lox) runFile(filePath string) {
+	file, err := os.ReadFile(os.Args[1])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to open file with error: %w", err)
+	}
+
+	l.run(file)
+	if l.hadError {
+		os.Exit(65)
+	}
+
+	if l.hadRuntimeError {
+		os.Exit(70)
+	}
+}
+
+func (l *Lox) runPromt() {
+	reader := bufio.NewReader(os.Stdin)
+
+	for {
+		fmt.Print("> ")
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			if err.Error() == "EOF" {
+				break
+			}
+			fmt.Fprintln(os.Stderr, "Error reading input:", err)
+			break
+		}
+
+		if len(line) > 0 && line[len(line)-1] == '\n' {
+			line = line[:len(line)-1]
+		}
+
+		l.run(line)
+		l.hadError = false
+	}
+}
+
+func (l *Lox) run(source []byte) {
+
+	scanner := scanner.NewScanner(source)
+	tokens, _ := scanner.Scan()
+
+	parser_ := parser.NewParser(tokens)
+	statements := parser_.Parse()
+
+	if l.hadError {
+		return
+	}
+
+	interpreter_ := interpreter.NewInterpreter()
+	interpreter_.Interpret(statements)
+
+}
