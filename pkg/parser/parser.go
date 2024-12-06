@@ -1,8 +1,26 @@
 package parser
 
 import (
+	"fmt"
+
 	"github.com/neet-007/glox/pkg/scanner"
 )
+
+type ParseError struct {
+	Token   scanner.Token
+	Message string
+}
+
+func newParseError(token scanner.Token, message string) *ParseError {
+	return &ParseError{
+		Token:   token,
+		Message: message,
+	}
+}
+
+func (p *ParseError) Error() string {
+	return fmt.Sprintf("parse error at %d with message %s\n", p.Token.Line, p.Message)
+}
 
 type Parser struct {
 	tokens  []scanner.Token
@@ -17,20 +35,34 @@ func NewParser(tokens []scanner.Token) *Parser {
 	}
 }
 
-func (p *Parser) Parse() []Stmt {
+func (p *Parser) Parse() ([]Stmt, []*ParseError) {
 	expressions := []Stmt{}
+	errors := []*ParseError{}
 
 	for !p.isAtEnd() {
-		expressions = append(expressions, p.statement())
+		statement, parseErr := p.statement()
+		if parseErr != nil {
+			errors = append(errors, parseErr)
+			p.synchronize()
+		}
+		expressions = append(expressions, statement)
 	}
 
-	return expressions
+	return expressions, errors
 }
 
-func (p *Parser) statement() Stmt {
+func (p *Parser) statement() (Stmt, *ParseError) {
 	if p.match(scanner.PRINT) {
-		expr := p.expression()
-		return NewPrintStmt(expr)
+		expr, parseErr := p.expression()
+		if parseErr != nil {
+			return nil, parseErr
+		}
+
+		_, parseErr = p.consume(scanner.SEMICOLON, "Expect ';' after expression")
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		return NewPrintStmt(expr), nil
 	}
 	if p.match(scanner.WHILE) {
 		return p.whileStatement()
@@ -45,176 +77,280 @@ func (p *Parser) statement() Stmt {
 	return p.expressionStatement()
 }
 
-func (p *Parser) whileStatement() Stmt {
-	p.consume(scanner.LEFT_PAREN, "Expect '(' afer if statemnt")
-	expr := p.expression()
-	p.consume(scanner.RIGHT_PAREN, "Expect ')' afer if statemnt")
+func (p *Parser) whileStatement() (Stmt, *ParseError) {
+	_, parseErr := p.consume(scanner.LEFT_PAREN, "Expect '(' afer if statemnt")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	expr, parseErr := p.expression()
 
-	p.consume(scanner.LEFT_BRACE, "Expect '{' block start")
-	block := p.block()
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	_, parseErr = p.consume(scanner.RIGHT_PAREN, "Expect ')' afer if statemnt")
+	if parseErr != nil {
+		return nil, parseErr
+	}
 
-	return NewWhileStmt(expr, block)
+	_, parseErr = p.consume(scanner.LEFT_BRACE, "Expect '{' block start")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	block, parseErr := p.block()
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	return NewWhileStmt(expr, block), nil
 }
 
-func (p *Parser) ifStatement() Stmt {
-	p.consume(scanner.LEFT_PAREN, "Expect '(' afer if statemnt")
-	expr := p.expression()
-	p.consume(scanner.RIGHT_PAREN, "Expect ')' afer if statemnt")
+func (p *Parser) ifStatement() (Stmt, *ParseError) {
+	_, parseErr := p.consume(scanner.LEFT_PAREN, "Expect '(' afer if statemnt")
+	if parseErr != nil {
+		return nil, parseErr
+	}
 
-	p.consume(scanner.LEFT_BRACE, "Expect '{' block start")
-	ifBracnh := p.block()
+	expr, parseErr := p.expression()
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	_, parseErr = p.consume(scanner.RIGHT_PAREN, "Expect ')' afer if statemnt")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	_, parseErr = p.consume(scanner.LEFT_BRACE, "Expect '{' block start")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	ifBracnh, parseErr := p.block()
+	if parseErr != nil {
+		return nil, parseErr
+	}
 
 	var elseBranch Stmt
 	if p.match(scanner.ELSE) {
-		p.consume(scanner.LEFT_BRACE, "Expect '{' block after if statemnt")
-		elseBranch = p.block()
+		_, parseErr = p.consume(scanner.LEFT_BRACE, "Expect '{' block after if statemnt")
+		if parseErr != nil {
+			return nil, parseErr
+		}
+
+		elseBranch, parseErr = p.block()
+		if parseErr != nil {
+			return nil, parseErr
+		}
 
 	}
-	return NewIfStmt(expr, ifBracnh, elseBranch)
+	return NewIfStmt(expr, ifBracnh, elseBranch), nil
 }
 
-func (p *Parser) block() Stmt {
+func (p *Parser) block() (Stmt, *ParseError) {
 	statemnts := []Stmt{}
 	for !p.isAtEnd() && !p.check(scanner.RIGHT_BRACE) {
-		statemnts = append(statemnts, p.statement())
+		statement, parseErr := p.statement()
+		if parseErr != nil {
+			return nil, parseErr
+		}
+
+		statemnts = append(statemnts, statement)
 	}
 
-	p.consume(scanner.RIGHT_BRACE, "Expect '}' after block")
+	_, parseErr := p.consume(scanner.RIGHT_BRACE, "Expect '}' after block")
+	if parseErr != nil {
+		return nil, parseErr
+	}
 
-	return NewBlock(statemnts)
+	return NewBlock(statemnts), nil
 }
 
-func (p *Parser) expressionStatement() Stmt {
-	expr := p.expression()
-	p.consume(scanner.SEMICOLON, "Expect ';' after expression")
-	return NewExpressionStmt(expr)
+func (p *Parser) expressionStatement() (Stmt, *ParseError) {
+	expr, parseErr := p.expression()
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	_, parseErr = p.consume(scanner.SEMICOLON, "Expect ';' after expression")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	return NewExpressionStmt(expr), nil
 }
 
-func (p *Parser) expression() Expr {
+func (p *Parser) expression() (Expr, *ParseError) {
 	return p.or()
 }
 
-func (p *Parser) or() Expr {
-	left := p.and()
+func (p *Parser) or() (Expr, *ParseError) {
+	left, parseErr := p.and()
+	if parseErr != nil {
+		return nil, parseErr
+	}
 
 	if p.match(scanner.OR) {
 		operator := p.previous()
-		right := p.or()
+		right, parseErr := p.or()
+		if parseErr != nil {
+			return nil, parseErr
+		}
 
-		return NewLogical(left, right, operator)
+		return NewLogical(left, right, operator), nil
 
 	}
 
-	return left
+	return left, nil
 }
 
-func (p *Parser) and() Expr {
-	left := p.equality()
+func (p *Parser) and() (Expr, *ParseError) {
+	left, parseErr := p.equality()
+	if parseErr != nil {
+		return nil, parseErr
+	}
 
 	if p.match(scanner.AND) {
 		operator := p.previous()
-		right := p.and()
+		right, parseErr := p.and()
+		if parseErr != nil {
+			return nil, parseErr
+		}
 
-		return NewLogical(left, right, operator)
+		return NewLogical(left, right, operator), nil
 
 	}
 
-	return left
+	return left, nil
 }
 
-func (p *Parser) equality() Expr {
-	left := p.comparison()
+func (p *Parser) equality() (Expr, *ParseError) {
+	left, parseErr := p.comparison()
+	if parseErr != nil {
+		return nil, parseErr
+	}
 
 	if p.match(scanner.BANG_EQUAL, scanner.EQUAL_EQUAL) {
 		operator := p.previous()
-		right := p.equality()
+		right, parseErr := p.equality()
+		if parseErr != nil {
+			return nil, parseErr
+		}
 
-		return NewLogical(left, right, operator)
+		return NewLogical(left, right, operator), nil
 	}
 
-	return left
+	return left, nil
 }
 
-func (p *Parser) comparison() Expr {
-	left := p.term()
+func (p *Parser) comparison() (Expr, *ParseError) {
+	left, parseErr := p.term()
+	if parseErr != nil {
+		return nil, parseErr
+	}
 
 	if p.match(scanner.GREATER, scanner.GREATER, scanner.LESS, scanner.LESS_EQUAL) {
 		operator := p.previous()
-		right := p.comparison()
+		right, parseErr := p.comparison()
+		if parseErr != nil {
+			return nil, parseErr
+		}
 
-		return NewLogical(left, right, operator)
+		return NewLogical(left, right, operator), nil
 	}
 
-	return left
+	return left, nil
 }
 
-func (p *Parser) term() Expr {
-	left := p.factor()
+func (p *Parser) term() (Expr, *ParseError) {
+	left, parseErr := p.factor()
+	if parseErr != nil {
+		return nil, parseErr
+	}
 
 	if p.match(scanner.PLUS, scanner.MINUS) {
 		operator := p.previous()
-		rigth := p.term()
+		rigth, parseErr := p.term()
+		if parseErr != nil {
+			return nil, parseErr
+		}
 
-		return NewBinary(left, rigth, operator)
+		return NewBinary(left, rigth, operator), nil
 	}
 
-	return left
+	return left, nil
 }
 
-func (p *Parser) factor() Expr {
-	left := p.unary()
+func (p *Parser) factor() (Expr, *ParseError) {
+	left, parseErr := p.unary()
+	if parseErr != nil {
+		return nil, parseErr
+	}
 
 	if p.match(scanner.STAR, scanner.SLASH) {
 		operator := p.previous()
-		rigth := p.factor()
+		rigth, parseErr := p.factor()
+		if parseErr != nil {
+			return nil, parseErr
+		}
 
-		return NewBinary(left, rigth, operator)
+		return NewBinary(left, rigth, operator), nil
 	}
 
-	return left
+	return left, nil
 }
 
-func (p *Parser) unary() Expr {
+func (p *Parser) unary() (Expr, *ParseError) {
 	if p.match(scanner.MINUS, scanner.BANG) {
 		operator := p.previous()
-		right := p.unary()
+		right, parseErr := p.unary()
+		if parseErr != nil {
+			return nil, parseErr
+		}
 
-		return NewUnary(right, operator)
+		return NewUnary(right, operator), nil
 	}
 
 	return p.primary()
 }
 
-func (p *Parser) primary() Expr {
+func (p *Parser) primary() (Expr, *ParseError) {
 	if p.match(scanner.TRUE) {
-		return NewLiteral(true)
+		return NewLiteral(true), nil
 	}
 	if p.match(scanner.FALSE) {
-		return NewLiteral(false)
+		return NewLiteral(false), nil
 	}
 	if p.match(scanner.NIL) {
-		return NewLiteral(nil)
+		return NewLiteral(nil), nil
 	}
 	if p.match(scanner.NUMBER, scanner.STRING) {
-		return NewLiteral(p.previous().Literal)
+		return NewLiteral(p.previous().Literal), nil
 	}
 	if p.match(scanner.LEFT_PAREN) {
-		expr := p.expression()
-		p.consume(scanner.RIGHT_PAREN, "Expect ')' after grouping")
-		return NewGrouping(expr)
+		expr, parseErr := p.expression()
+		if parseErr != nil {
+			return nil, parseErr
+		}
+
+		_, parseErr = p.consume(scanner.RIGHT_PAREN, "Expect ')' after grouping")
+
+		if parseErr != nil {
+			return nil, parseErr
+		}
+
+		return NewGrouping(expr), nil
 	}
 
-	//!TODO error
-	return NewLiteral(false)
+	return nil, newParseError(p.peek(), "invalid primary")
 }
 
-func (p *Parser) consume(tokenType scanner.TokenType, message string) scanner.Token {
+func (p *Parser) consume(tokenType scanner.TokenType, message string) (scanner.Token, *ParseError) {
 	if p.check(tokenType) {
-		return p.advnace()
+		return p.advnace(), nil
 	}
 
-	//!TIDI error
-	return scanner.Token{}
+	return scanner.Token{}, newParseError(p.peek(), message)
 }
 
 func (p *Parser) advnace() scanner.Token {
@@ -255,4 +391,28 @@ func (p *Parser) peekAhead() scanner.Token {
 		//!TODO error
 	}
 	return p.tokens[p.current+1]
+}
+
+func (p *Parser) synchronize() {
+	p.advnace()
+
+	for !p.isAtEnd() {
+		if p.previous().TokenType == scanner.SEMICOLON {
+			return
+		}
+
+		switch p.peek().TokenType {
+		case scanner.CLASS:
+		case scanner.FUN:
+		case scanner.VAR:
+		case scanner.FOR:
+		case scanner.IF:
+		case scanner.WHILE:
+		case scanner.PRINT:
+		case scanner.RETURN:
+			return
+		}
+
+		p.advnace()
+	}
 }

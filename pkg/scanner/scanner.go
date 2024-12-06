@@ -5,20 +5,20 @@ import (
 	"strconv"
 )
 
-type ParseError struct {
-	message string
-	line    int
+type ScannerError struct {
+	Token   Token
+	Message string
 }
 
-func newParseError(line int, message string) *ParseError {
-	return &ParseError{
-		line:    line,
-		message: message,
+func newScannerError(token Token, message string) *ScannerError {
+	return &ScannerError{
+		Token:   token,
+		Message: message,
 	}
 }
 
-func (err *ParseError) Error() string {
-	return fmt.Sprintf("parse error at %d with message %s", err.line, err.message)
+func (err *ScannerError) Error() string {
+	return fmt.Sprintf("parse error at %d with message %s", err.Token.Line, err.Message)
 }
 
 type Scanner struct {
@@ -52,17 +52,18 @@ func NewScanner(source []byte) *Scanner {
 			"while":  WHILE,
 		},
 		source: source,
+		line:   1,
 		length: len(source),
 	}
 }
 
-func (s *Scanner) Scan() ([]Token, []error) {
-	errors := []error{}
+func (s *Scanner) Scan() ([]Token, []*ScannerError) {
+	errors := []*ScannerError{}
 	for !s.isAtEnd() {
 		s.start = s.current
-		parseErr := s.scanToken()
-		if parseErr != nil {
-			errors = append(errors, parseErr)
+		scannerErr := s.scanToken()
+		if scannerErr != nil {
+			errors = append(errors, scannerErr)
 		}
 	}
 
@@ -70,7 +71,7 @@ func (s *Scanner) Scan() ([]Token, []error) {
 	return s.tokens, errors
 }
 
-func (s *Scanner) scanToken() error {
+func (s *Scanner) scanToken() *ScannerError {
 	c := s.advance()
 
 	switch c {
@@ -180,8 +181,7 @@ func (s *Scanner) scanToken() error {
 		}
 	case '"':
 		{
-			s.stringLiteral()
-			break
+			return s.stringLiteral()
 		}
 	case ' ':
 	case '\t':
@@ -197,8 +197,7 @@ func (s *Scanner) scanToken() error {
 	default:
 		{
 			if s.isNumber(c) {
-				s.number()
-				break
+				return s.number()
 			}
 
 			if s.isAlphaNumerical(c) {
@@ -206,7 +205,7 @@ func (s *Scanner) scanToken() error {
 				break
 			}
 
-			return newParseError(s.line, "unknown charecter")
+			return newScannerError(Token{TokenType: Error, Lexeme: string(c), Line: s.line, Literal: nil}, "unknown charecter")
 		}
 	}
 
@@ -236,7 +235,7 @@ func (s *Scanner) identifier() {
 	s.addToken(IDENTIFIER, string(s.source[s.start:s.current]))
 }
 
-func (s *Scanner) stringLiteral() error {
+func (s *Scanner) stringLiteral() *ScannerError {
 	for !s.isAtEnd() && s.peek() != '"' {
 		if s.peek() == '\n' {
 			s.line++
@@ -245,7 +244,7 @@ func (s *Scanner) stringLiteral() error {
 	}
 
 	if s.isAtEnd() {
-		return newParseError(s.line, "unterminated string")
+		return newScannerError(Token{TokenType: Error, Lexeme: string(s.source[s.start:s.current]), Line: s.line, Literal: nil}, "unterminated string")
 	}
 
 	s.advance()
@@ -253,7 +252,7 @@ func (s *Scanner) stringLiteral() error {
 	return nil
 }
 
-func (s *Scanner) number() error {
+func (s *Scanner) number() *ScannerError {
 	for !s.isAtEnd() && s.isNumber(s.peek()) {
 		s.advance()
 	}
@@ -269,7 +268,7 @@ func (s *Scanner) number() error {
 	num, err := strconv.ParseFloat(string(s.source[s.start:s.current]), 64)
 
 	if err != nil {
-		return newParseError(s.line, "invalid number")
+		return newScannerError(Token{TokenType: Error, Lexeme: string(s.source[s.start:s.current]), Line: s.line, Literal: nil}, "invalid number")
 	}
 
 	s.addToken(NUMBER, num)

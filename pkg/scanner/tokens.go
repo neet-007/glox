@@ -45,6 +45,7 @@ const (
 	WHILE
 
 	EOF
+	Error
 )
 
 var TokenNames = map[TokenType]string{

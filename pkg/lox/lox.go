@@ -79,12 +79,19 @@ func (l *Lox) runPromt() {
 }
 
 func (l *Lox) run(source []byte) {
-
 	scanner := scanner.NewScanner(source)
-	tokens, _ := scanner.Scan()
+	tokens, scannerErrors := scanner.Scan()
+
+	for _, error := range scannerErrors {
+		l.error(error.Token, error.Message)
+	}
 
 	parser_ := parser.NewParser(tokens)
-	statements := parser_.Parse()
+	statements, parserErrors := parser_.Parse()
+
+	for _, error := range parserErrors {
+		l.error(error.Token, error.Message)
+	}
 
 	if l.hadError {
 		return
@@ -93,4 +100,17 @@ func (l *Lox) run(source []byte) {
 	interpreter_ := interpreter.NewInterpreter()
 	interpreter_.Interpret(statements)
 
+}
+
+func (l *Lox) error(token scanner.Token, message string) {
+	if token.TokenType == scanner.EOF {
+		l.report(token.Line, " at end", message)
+	} else {
+		l.report(token.Line, " at '"+token.Lexeme+"'", message)
+	}
+}
+
+func (l *Lox) report(line int, where string, message string) {
+	fmt.Fprintf(os.Stderr, "[line %d] Error %s: %s\n", line, where, message)
+	l.hadError = true
 }
