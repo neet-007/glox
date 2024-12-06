@@ -1,6 +1,7 @@
 package parser
 
 type VisitStmt interface {
+	VisitWhileStmt(stmt WhileStmt) any
 	VisitBlockStmt(stmt Block) any
 	VisitIfStmt(stmt IfStmt) any
 	VisitExpressionStmt(stmt ExpressionStmt) any
@@ -9,6 +10,22 @@ type VisitStmt interface {
 
 type Stmt interface {
 	Accept(visitor VisitStmt) any
+}
+
+type WhileStmt struct {
+	Condition Expr
+	Body      Stmt
+}
+
+func NewWhileStmt(condition Expr, block Stmt) WhileStmt {
+	return WhileStmt{
+		Condition: condition,
+		Body:      block,
+	}
+}
+
+func (w WhileStmt) Accept(visitor VisitStmt) any {
+	return visitor.VisitWhileStmt(w)
 }
 
 type Block struct {

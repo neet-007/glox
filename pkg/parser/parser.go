@@ -32,6 +32,9 @@ func (p *Parser) statement() Stmt {
 		expr := p.expression()
 		return NewPrintStmt(expr)
 	}
+	if p.match(scanner.WHILE) {
+		return p.whileStatement()
+	}
 	if p.match(scanner.IF) {
 		return p.ifStatement()
 	}
@@ -42,10 +45,23 @@ func (p *Parser) statement() Stmt {
 	return p.expressionStatement()
 }
 
-func (p *Parser) ifStatement() Stmt {
+func (p *Parser) whileStatement() Stmt {
+	p.consume(scanner.LEFT_PAREN, "Expect '(' afer if statemnt")
 	expr := p.expression()
+	p.consume(scanner.RIGHT_PAREN, "Expect ')' afer if statemnt")
 
-	p.consume(scanner.LEFT_BRACE, "Expect '{' block after if statemnt")
+	p.consume(scanner.LEFT_BRACE, "Expect '{' block start")
+	block := p.block()
+
+	return NewWhileStmt(expr, block)
+}
+
+func (p *Parser) ifStatement() Stmt {
+	p.consume(scanner.LEFT_PAREN, "Expect '(' afer if statemnt")
+	expr := p.expression()
+	p.consume(scanner.RIGHT_PAREN, "Expect ')' afer if statemnt")
+
+	p.consume(scanner.LEFT_BRACE, "Expect '{' block start")
 	ifBracnh := p.block()
 
 	var elseBranch Stmt

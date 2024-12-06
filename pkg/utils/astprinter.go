@@ -85,6 +85,10 @@ func (a *AstPrinter) VisitBlockStmt(stmt parser.Block) any {
 	return fmt.Sprintf("(block %s)", strings.Join(stmts, " "))
 }
 
+func (a *AstPrinter) VisitWhileStmt(stmt parser.WhileStmt) any {
+	return fmt.Sprintf("(while %s %s)", a.parenthesize("condition", stmt.Condition), a.print(stmt.Body))
+}
+
 /*
 	func (a *AstPrinter) VisitVariableExpr(expr Variable) any {
 		return expr.Name.Lexeme
@@ -128,9 +132,6 @@ func (a *AstPrinter) VisitBlockStmt(stmt parser.Block) any {
 		return fmt.Sprintf("(var %s)", stmt.Name.Lexeme)
 	}
 
-	func (a *AstPrinter) VisitWhileStmt(stmt While) any {
-		return fmt.Sprintf("(while %s %s)", a.parenthesize("condition", stmt.Condition), a.print(stmt.Body))
-	}
 
 */
 

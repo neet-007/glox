@@ -24,6 +24,16 @@ func (i *Interpreter) execute(stmt parser.Stmt) {
 	stmt.Accept(i)
 }
 
+func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) any {
+	condition := i.evaluate(stmt.Condition)
+	conditionTruthy := i.isTruthy(condition)
+
+	for conditionTruthy {
+		stmt.Body.Accept(i)
+	}
+	return nil
+}
+
 func (i *Interpreter) VisitIfStmt(stmt parser.IfStmt) any {
 	condition := i.evaluate(stmt.Condition)
 	conditionTruthy := i.isTruthy(condition)
