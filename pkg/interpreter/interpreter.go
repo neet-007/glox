@@ -24,6 +24,27 @@ func (i *Interpreter) execute(stmt parser.Stmt) {
 	stmt.Accept(i)
 }
 
+func (i *Interpreter) VisitIfStmt(stmt parser.IfStmt) any {
+	condition := i.evaluate(stmt.Condition)
+	conditionTruthy := i.isTruthy(condition)
+
+	if conditionTruthy {
+		stmt.ThenBranch.Accept(i)
+	} else {
+		stmt.ElseBranch.Accept(i)
+	}
+
+	return nil
+}
+
+func (i *Interpreter) VisitBlockStmt(stmt parser.Block) any {
+	for _, stmt_ := range stmt.Statements {
+		stmt_.Accept(i)
+	}
+
+	return nil
+}
+
 func (i *Interpreter) VisitExpressionStmt(stmt parser.ExpressionStmt) any {
 	return i.evaluate(stmt.Expression)
 }

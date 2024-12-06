@@ -70,18 +70,26 @@ func (a *AstPrinter) VisitExpressionStmt(stmt parser.ExpressionStmt) any {
 	return a.parenthesize("expression", stmt.Expression)
 }
 
+func (a *AstPrinter) VisitIfStmt(stmt parser.IfStmt) any {
+	if stmt.ElseBranch != nil {
+		return fmt.Sprintf("(if %s %s %s)", a.parenthesize("condition", stmt.Condition), a.print(stmt.ThenBranch), a.print(stmt.ElseBranch))
+	}
+	return fmt.Sprintf("(if %s %s)", a.parenthesize("condition", stmt.Condition), a.print(stmt.ThenBranch))
+}
+
+func (a *AstPrinter) VisitBlockStmt(stmt parser.Block) any {
+	var stmts []string
+	for _, statement := range stmt.Statements {
+		stmts = append(stmts, a.print(statement))
+	}
+	return fmt.Sprintf("(block %s)", strings.Join(stmts, " "))
+}
+
 /*
 	func (a *AstPrinter) VisitVariableExpr(expr Variable) any {
 		return expr.Name.Lexeme
 	}
 
-	func (a *AstPrinter) VisitBlockStmt(stmt Block) any {
-		var stmts []string
-		for _, statement := range stmt.Statements {
-			stmts = append(stmts, a.print(statement))
-		}
-		return fmt.Sprintf("(block %s)", strings.Join(stmts, " "))
-	}
 
 	func (a *AstPrinter) VisitClassStmt(stmt Class) any {
 		superclass := stmt.Superclass
@@ -104,12 +112,6 @@ func (a *AstPrinter) VisitExpressionStmt(stmt parser.ExpressionStmt) any {
 		return fmt.Sprintf("(fun %s (%s) %s)", stmt.Name.Lexeme, strings.Join(params, " "), bodyStatms)
 	}
 
-	func (a *AstPrinter) VisitIfStmt(stmt If) any {
-		if stmt.ElseBranch != nil {
-			return fmt.Sprintf("(if %s %s %s)", a.parenthesize("condition", stmt.Condition), a.print(stmt.ThenBranch), a.print(stmt.ElseBranch))
-		}
-		return fmt.Sprintf("(if %s %s)", a.parenthesize("condition", stmt.Condition), a.print(stmt.ThenBranch))
-	}
 
 
 	func (a *AstPrinter) VisitReturnStmt(stmt Return) any {
@@ -134,20 +136,18 @@ func (a *AstPrinter) VisitExpressionStmt(stmt parser.ExpressionStmt) any {
 
 func (a *AstPrinter) Print(stmts []parser.Stmt) {
 	for _, stmt := range stmts {
-		a.print(stmt)
+		fmt.Printf("%v\n", a.print(stmt))
 	}
 }
 
-func (a *AstPrinter) print(stmt parser.Stmt) {
+func (a *AstPrinter) print(stmt parser.Stmt) string {
 	if stmt == nil {
-		fmt.Println("nil")
-		return
+		return "nil"
 	}
 
 	val := stmt.Accept(a)
 	if val == nil {
-		fmt.Println("nil")
-		return
+		return "nil"
 	}
 
 	valStrting, ok := val.(string)
@@ -155,7 +155,7 @@ func (a *AstPrinter) print(stmt parser.Stmt) {
 		panic("not ok")
 	}
 
-	fmt.Printf("%v\n", valStrting)
+	return valStrting
 }
 
 func (a *AstPrinter) parenthesize(name string, exprs ...parser.Expr) string {

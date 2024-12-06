@@ -32,8 +32,40 @@ func (p *Parser) statement() Stmt {
 		expr := p.expression()
 		return NewPrintStmt(expr)
 	}
+	if p.match(scanner.IF) {
+		return p.ifStatement()
+	}
+	if p.match(scanner.LEFT_BRACE) {
+		return p.block()
+	}
 
 	return p.expressionStatement()
+}
+
+func (p *Parser) ifStatement() Stmt {
+	expr := p.expression()
+
+	p.consume(scanner.LEFT_BRACE, "Expect '{' block after if statemnt")
+	ifBracnh := p.block()
+
+	var elseBranch Stmt
+	if p.match(scanner.ELSE) {
+		p.consume(scanner.LEFT_BRACE, "Expect '{' block after if statemnt")
+		elseBranch = p.block()
+
+	}
+	return NewIfStmt(expr, ifBracnh, elseBranch)
+}
+
+func (p *Parser) block() Stmt {
+	statemnts := []Stmt{}
+	for !p.isAtEnd() && !p.check(scanner.RIGHT_BRACE) {
+		statemnts = append(statemnts, p.statement())
+	}
+
+	p.consume(scanner.RIGHT_BRACE, "Expect '}' after block")
+
+	return NewBlock(statemnts)
 }
 
 func (p *Parser) expressionStatement() Stmt {
