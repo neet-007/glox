@@ -55,25 +55,95 @@ func (p *Parser) declaration() (Stmt, *ParseError) {
 	if p.match(scanner.VAR) {
 		return p.varDeclaration()
 	}
+	if p.match(scanner.FOR) {
+		return p.forStatement()
+	}
 
 	return p.statement()
 }
 
+func (p *Parser) forStatement() (Stmt, *ParseError) {
+	_, parseErr := p.consume(scanner.LEFT_PAREN, "Expect '(' after for statement")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	var initizlier Stmt
+	if p.match(scanner.SEMICOLON) {
+		initizlier = nil
+	} else if p.match(scanner.VAR) {
+		initizlier, parseErr = p.varDeclaration()
+		if parseErr != nil {
+			return nil, parseErr
+		}
+	} else {
+		initizlier, parseErr = p.expressionStatement()
+		if parseErr != nil {
+			return nil, parseErr
+		}
+	}
+
+	var condition Expr
+	if !p.check(scanner.SEMICOLON) {
+		condition, parseErr = p.expression()
+		if parseErr != nil {
+			return nil, parseErr
+		}
+	}
+	_, parseErr = p.consume(scanner.SEMICOLON, "Expect ';' after condition")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	var increment Expr
+	if !p.check(scanner.RIGHT_PAREN) {
+		increment, parseErr = p.expression()
+		if parseErr != nil {
+			return nil, parseErr
+		}
+	}
+	_, parseErr = p.consume(scanner.RIGHT_PAREN, "Expect ')' after increment")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	body, parseErr := p.statement()
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	if increment != nil {
+		body = NewBlock([]Stmt{body, NewExpressionStmt(increment)})
+	}
+
+	if condition == nil {
+		condition = NewLiteral(true)
+	}
+
+	body = NewWhileStmt(condition, body)
+
+	if initizlier != nil {
+		body = NewBlock([]Stmt{initizlier, body})
+	}
+
+	return body, nil
+}
+
 func (p *Parser) varDeclaration() (Stmt, *ParseError) {
-	identifier, err := p.consume(scanner.IDENTIFIER, "Expect identefier for variable")
-	if err != nil {
-		return nil, err
+	identifier, parserErr := p.consume(scanner.IDENTIFIER, "Expect identefier for variable")
+	if parserErr != nil {
+		return nil, parserErr
 	}
 
 	var initilizer Expr
 	if p.match(scanner.EQUAL) {
-		initilizer, err = p.expression()
-		if err != nil {
-			return nil, err
+		initilizer, parserErr = p.expression()
+		if parserErr != nil {
+			return nil, parserErr
 		}
 	}
 
-	_, err = p.consume(scanner.SEMICOLON, "Expect ';' after expression")
+	_, parserErr = p.consume(scanner.SEMICOLON, "Expect ';' after expression")
 	return NewVarDeclaration(identifier, initilizer), nil
 }
 

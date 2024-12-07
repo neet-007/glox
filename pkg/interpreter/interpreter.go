@@ -48,6 +48,8 @@ func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) any {
 
 	for conditionTruthy {
 		stmt.Body.Accept(i)
+		condition = i.evaluate(stmt.Condition)
+		conditionTruthy = i.isTruthy(condition)
 	}
 	return nil
 }
@@ -90,7 +92,7 @@ func (i *Interpreter) VisitAssignExpr(expr parser.Assign) any {
 		return nil
 	}
 
-	return nil
+	return val
 }
 
 func (i *Interpreter) VisitVariableExpr(expr parser.Variable) any {
@@ -169,8 +171,37 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) any {
 
 	switch expr.Operator.TokenType {
 	case scanner.GREATER:
+		{
+			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
+			if err != nil {
+				//!TODO error
+				return nil
+			}
+
+			return left > right
+		}
 	case scanner.GREATER_EQUAL:
+		{
+
+			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
+			if err != nil {
+				//!TODO error
+				return nil
+			}
+
+			return left >= right
+		}
 	case scanner.LESS:
+		{
+
+			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
+			if err != nil {
+				//!TODO error
+				return nil
+			}
+
+			return left < right
+		}
 	case scanner.LESS_EQUAL:
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
@@ -179,17 +210,28 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) any {
 				return nil
 			}
 
-			if expr.Operator.TokenType == scanner.GREATER {
-				return left > right
-			} else if expr.Operator.TokenType == scanner.GREATER_EQUAL {
-				return left >= right
-			} else if expr.Operator.TokenType == scanner.LESS {
-				return left < right
-			} else {
-				return left <= right
-			}
+			return left <= right
 		}
 	case scanner.EQUAL_EQUAL:
+		{
+			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
+			if err == nil {
+				if expr.Operator.TokenType == scanner.EQUAL_EQUAL {
+					return left == right
+				} else {
+					return left != right
+				}
+			}
+
+			if strLeft, ok := leftVal.(string); ok {
+				if strRight, ok := rightVal.(string); ok {
+					return strLeft == strRight
+				}
+			}
+
+			//!TODO error
+			return nil
+		}
 	case scanner.BANG_EQUAL:
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
@@ -203,11 +245,7 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) any {
 
 			if strLeft, ok := leftVal.(string); ok {
 				if strRight, ok := rightVal.(string); ok {
-					if expr.Operator.TokenType == scanner.EQUAL_EQUAL {
-						return strLeft == strRight
-					} else {
-						return strLeft != strRight
-					}
+					return strLeft != strRight
 				}
 			}
 
@@ -220,8 +258,6 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) any {
 			return nil
 		}
 	}
-	//!TODO error
-	return nil
 }
 
 func (i *Interpreter) VisitGroupingExpr(expr parser.Grouping) any {

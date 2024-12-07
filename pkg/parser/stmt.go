@@ -1,6 +1,11 @@
 package parser
 
-import "github.com/neet-007/glox/pkg/scanner"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/neet-007/glox/pkg/scanner"
+)
 
 type VisitStmt interface {
 	VisitVarDeclaration(stmt VarDeclaration) any
@@ -20,6 +25,10 @@ type VarDeclaration struct {
 	Name       scanner.Token
 }
 
+func (v VarDeclaration) String() string {
+	return fmt.Sprintf("init:%v name:%v\n", v.Initizlier, v.Name)
+}
+
 func NewVarDeclaration(name scanner.Token, initizlier Expr) VarDeclaration {
 	return VarDeclaration{
 		Name:       name,
@@ -36,6 +45,10 @@ type WhileStmt struct {
 	Body      Stmt
 }
 
+func (w WhileStmt) String() string {
+	return fmt.Sprintf("body:%v conditno:%v\n", w.Body, w.Condition)
+}
+
 func NewWhileStmt(condition Expr, block Stmt) WhileStmt {
 	return WhileStmt{
 		Condition: condition,
@@ -49,6 +62,16 @@ func (w WhileStmt) Accept(visitor VisitStmt) any {
 
 type Block struct {
 	Statements []Stmt
+}
+
+func (b Block) String() string {
+	var builder strings.Builder
+	builder.WriteString("block:\n")
+	for _, stmt := range b.Statements {
+		builder.WriteString(fmt.Sprintf("%v\n", stmt))
+	}
+
+	return fmt.Sprintf("%s\n", builder.String())
 }
 
 func NewBlock(statements []Stmt) Block {
@@ -67,6 +90,10 @@ type IfStmt struct {
 	ElseBranch Stmt
 }
 
+func (i IfStmt) String() string {
+	return fmt.Sprintf("condtion:%v then:%v else:%v\n", i.Condition, i.ThenBranch, i.ElseBranch)
+}
+
 func NewIfStmt(condition Expr, thenBranch Stmt, elseBranch Stmt) IfStmt {
 	return IfStmt{condition, thenBranch, elseBranch}
 }
@@ -77,6 +104,10 @@ func (i IfStmt) Accept(visitor VisitStmt) any {
 
 type ExpressionStmt struct {
 	Expression Expr
+}
+
+func (e ExpressionStmt) String() string {
+	return fmt.Sprintf("expr:%v\n", e.Expression)
 }
 
 func NewExpressionStmt(expr Expr) ExpressionStmt {
@@ -91,6 +122,10 @@ func (e ExpressionStmt) Accept(visitor VisitStmt) any {
 
 type PrintStmt struct {
 	Expression Expr
+}
+
+func (p PrintStmt) String() string {
+	return fmt.Sprintf("print expr:%v\n", p.Expression)
 }
 
 func NewPrintStmt(expr Expr) PrintStmt {
