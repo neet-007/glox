@@ -35,7 +35,7 @@ func (l *Lox) Main() {
 		return
 	}
 
-	fmt.Fprintln(os.Stderr, "Usage: jlox [script]")
+	fmt.Fprintln(os.Stderr, "Usage: glox [script]")
 	os.Exit(64)
 }
 

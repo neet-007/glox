@@ -89,10 +89,18 @@ func (a *AstPrinter) VisitWhileStmt(stmt parser.WhileStmt) any {
 	return fmt.Sprintf("(while %s %s)", a.parenthesize("condition", stmt.Condition), a.print(stmt.Body))
 }
 
-/*
-	func (a *AstPrinter) VisitVariableExpr(expr Variable) any {
-		return expr.Name.Lexeme
+func (a *AstPrinter) VisitVarDeclaration(stmt parser.VarDeclaration) any {
+	if stmt.Initizlier != nil {
+		return fmt.Sprintf("(var %s %s)", stmt.Name.Lexeme, a.parenthesize("initializer", stmt.Initizlier))
 	}
+	return fmt.Sprintf("(var %s)", stmt.Name.Lexeme)
+}
+
+func (a *AstPrinter) VisitVariableExpr(expr parser.Variable) any {
+	return expr.Name.Lexeme
+}
+
+/*
 
 
 	func (a *AstPrinter) VisitClassStmt(stmt Class) any {
@@ -125,12 +133,6 @@ func (a *AstPrinter) VisitWhileStmt(stmt parser.WhileStmt) any {
 		return "(return)"
 	}
 
-	func (a *AstPrinter) VisitVarStmt(stmt Var) any {
-		if stmt.Initializer != nil {
-			return fmt.Sprintf("(var %s %s)", stmt.Name.Lexeme, a.parenthesize("initializer", stmt.Initializer))
-		}
-		return fmt.Sprintf("(var %s)", stmt.Name.Lexeme)
-	}
 
 
 */

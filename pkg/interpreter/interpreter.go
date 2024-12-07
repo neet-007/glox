@@ -4,14 +4,18 @@ import (
 	"fmt"
 
 	"github.com/neet-007/glox/pkg/parser"
+	"github.com/neet-007/glox/pkg/resolver"
 	"github.com/neet-007/glox/pkg/scanner"
 )
 
 type Interpreter struct {
+	environment *resolver.Environment
 }
 
 func NewInterpreter() *Interpreter {
-	return &Interpreter{}
+	return &Interpreter{
+		environment: resolver.NewEnvironment(nil),
+	}
 }
 
 func (i *Interpreter) Interpret(stmts []parser.Stmt) {
@@ -22,6 +26,20 @@ func (i *Interpreter) Interpret(stmts []parser.Stmt) {
 
 func (i *Interpreter) execute(stmt parser.Stmt) {
 	stmt.Accept(i)
+}
+
+func (i *Interpreter) evaluate(expr parser.Expr) any {
+	return expr.Accept(i)
+}
+
+func (i *Interpreter) VisitVarDeclaration(stmt parser.VarDeclaration) any {
+	var initizlier any
+	if stmt.Initizlier != nil {
+		initizlier = i.evaluate(stmt.Initizlier)
+	}
+
+	i.environment.Define(stmt.Name, initizlier)
+	return nil
 }
 
 func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) any {
@@ -48,9 +66,7 @@ func (i *Interpreter) VisitIfStmt(stmt parser.IfStmt) any {
 }
 
 func (i *Interpreter) VisitBlockStmt(stmt parser.Block) any {
-	for _, stmt_ := range stmt.Statements {
-		stmt_.Accept(i)
-	}
+	i.executeBlock(stmt.Statements, resolver.NewEnvironment(i.environment))
 
 	return nil
 }
@@ -65,13 +81,28 @@ func (i *Interpreter) VisitPrintStmt(stmt parser.PrintStmt) any {
 	return nil
 }
 
-func (i *Interpreter) evaluate(expr parser.Expr) any {
-	return expr.Accept(i)
-}
-
 func (i *Interpreter) VisitAssignExpr(expr parser.Assign) any {
+	val := i.evaluate(expr.Expr)
+
+	err := i.environment.Assign(expr.Lexem, val)
+	if err != nil {
+		//!TODO error
+		return nil
+	}
+
 	return nil
 }
+
+func (i *Interpreter) VisitVariableExpr(expr parser.Variable) any {
+	val, err := i.environment.Get(expr.Name)
+	if err != nil {
+		//!TODO error
+		return nil
+	}
+
+	return val
+}
+
 func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) any {
 	leftVal := i.evaluate(expr.Left)
 	rightVal := i.evaluate(expr.Right)
@@ -199,6 +230,16 @@ func (i *Interpreter) VisitGroupingExpr(expr parser.Grouping) any {
 
 func (i *Interpreter) VisitLiteralExpr(expr parser.Literal) any {
 	return expr.Value
+}
+
+func (i *Interpreter) executeBlock(stmts []parser.Stmt, enviroment *resolver.Environment) {
+	prev := i.environment
+	i.environment = enviroment
+	for _, stmt_ := range stmts {
+		stmt_.Accept(i)
+	}
+
+	i.environment = prev
 }
 
 func (i *Interpreter) VisitUnaryExpr(expr parser.Unary) any {

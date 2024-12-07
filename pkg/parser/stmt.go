@@ -1,6 +1,9 @@
 package parser
 
+import "github.com/neet-007/glox/pkg/scanner"
+
 type VisitStmt interface {
+	VisitVarDeclaration(stmt VarDeclaration) any
 	VisitWhileStmt(stmt WhileStmt) any
 	VisitBlockStmt(stmt Block) any
 	VisitIfStmt(stmt IfStmt) any
@@ -10,6 +13,22 @@ type VisitStmt interface {
 
 type Stmt interface {
 	Accept(visitor VisitStmt) any
+}
+
+type VarDeclaration struct {
+	Initizlier Expr
+	Name       scanner.Token
+}
+
+func NewVarDeclaration(name scanner.Token, initizlier Expr) VarDeclaration {
+	return VarDeclaration{
+		Name:       name,
+		Initizlier: initizlier,
+	}
+}
+
+func (v VarDeclaration) Accept(visitor VisitStmt) any {
+	return visitor.VisitVarDeclaration(v)
 }
 
 type WhileStmt struct {

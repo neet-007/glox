@@ -40,7 +40,7 @@ func (p *Parser) Parse() ([]Stmt, []*ParseError) {
 	errors := []*ParseError{}
 
 	for !p.isAtEnd() {
-		statement, parseErr := p.statement()
+		statement, parseErr := p.declaration()
 		if parseErr != nil {
 			errors = append(errors, parseErr)
 			p.synchronize()
@@ -49,6 +49,32 @@ func (p *Parser) Parse() ([]Stmt, []*ParseError) {
 	}
 
 	return expressions, errors
+}
+
+func (p *Parser) declaration() (Stmt, *ParseError) {
+	if p.match(scanner.VAR) {
+		return p.varDeclaration()
+	}
+
+	return p.statement()
+}
+
+func (p *Parser) varDeclaration() (Stmt, *ParseError) {
+	identifier, err := p.consume(scanner.IDENTIFIER, "Expect identefier for variable")
+	if err != nil {
+		return nil, err
+	}
+
+	var initilizer Expr
+	if p.match(scanner.EQUAL) {
+		initilizer, err = p.expression()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	_, err = p.consume(scanner.SEMICOLON, "Expect ';' after expression")
+	return NewVarDeclaration(identifier, initilizer), nil
 }
 
 func (p *Parser) statement() (Stmt, *ParseError) {
@@ -150,7 +176,7 @@ func (p *Parser) ifStatement() (Stmt, *ParseError) {
 func (p *Parser) block() (Stmt, *ParseError) {
 	statemnts := []Stmt{}
 	for !p.isAtEnd() && !p.check(scanner.RIGHT_BRACE) {
-		statement, parseErr := p.statement()
+		statement, parseErr := p.declaration()
 		if parseErr != nil {
 			return nil, parseErr
 		}
@@ -181,7 +207,34 @@ func (p *Parser) expressionStatement() (Stmt, *ParseError) {
 }
 
 func (p *Parser) expression() (Expr, *ParseError) {
-	return p.or()
+	return p.assignment()
+}
+
+func (p *Parser) assignment() (Expr, *ParseError) {
+	expr, err := p.or()
+	if err != nil {
+		return nil, err
+	}
+
+	if p.match(scanner.EQUAL) {
+		equal := p.previous()
+		val, err := p.assignment()
+		if err != nil {
+			return nil, err
+		}
+
+		if exprVal, ok := expr.(Variable); ok {
+			return NewAssign(exprVal.Name, val), nil
+		}
+
+		_, err = p.consume(scanner.SEMICOLON, "Expect ';' after expression")
+		if err != nil {
+			return nil, err
+		}
+		return nil, newParseError(equal, "assigenmnt to invalid value")
+	}
+
+	return expr, nil
 }
 
 func (p *Parser) or() (Expr, *ParseError) {
@@ -340,6 +393,9 @@ func (p *Parser) primary() (Expr, *ParseError) {
 		}
 
 		return NewGrouping(expr), nil
+	}
+	if p.match(scanner.IDENTIFIER) {
+		return NewVariable(p.previous()), nil
 	}
 
 	return nil, newParseError(p.peek(), "invalid primary")

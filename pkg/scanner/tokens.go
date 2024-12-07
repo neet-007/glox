@@ -1,5 +1,7 @@
 package scanner
 
+import "fmt"
+
 type TokenType int
 
 const (
@@ -95,4 +97,9 @@ type Token struct {
 	Lexeme    string
 	Line      int
 	Literal   any
+}
+
+func (t Token) String() string {
+	return fmt.Sprintf("TokenType: %s, Lexeme: %s, Line: %d, Literal: %v",
+		TokenNames[t.TokenType], t.Lexeme, t.Line, t.Literal)
 }

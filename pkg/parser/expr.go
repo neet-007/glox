@@ -5,6 +5,7 @@ import (
 )
 
 type VisitExpr interface {
+	VisitVariableExpr(expr Variable) any
 	VisitAssignExpr(expr Assign) any
 	VisitBinaryExpr(expr Binary) any
 	VisitGroupingExpr(expr Grouping) any
@@ -15,6 +16,20 @@ type VisitExpr interface {
 
 type Expr interface {
 	Accept(visitor VisitExpr) any
+}
+
+type Variable struct {
+	Name scanner.Token
+}
+
+func NewVariable(name scanner.Token) Variable {
+	return Variable{
+		Name: name,
+	}
+}
+
+func (v Variable) Accept(visitor VisitExpr) any {
+	return visitor.VisitVariableExpr(v)
 }
 
 type Assign struct {
