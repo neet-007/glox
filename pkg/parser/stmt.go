@@ -8,6 +8,8 @@ import (
 )
 
 type VisitStmt interface {
+	VisitReturnStmt(stmt Return) any
+	VisitFunctionStmt(stmt Function) any
 	VisitVarDeclaration(stmt VarDeclaration) any
 	VisitWhileStmt(stmt WhileStmt) any
 	VisitBlockStmt(stmt Block) any
@@ -18,6 +20,48 @@ type VisitStmt interface {
 
 type Stmt interface {
 	Accept(visitor VisitStmt) any
+}
+
+type Return struct {
+	Keyword scanner.Token
+	Value   Expr
+}
+
+func NewReturn(keyword scanner.Token, value Expr) Return {
+	return Return{
+		Keyword: keyword,
+		Value:   value,
+	}
+}
+
+func (r Return) String() string {
+	return fmt.Sprintf("return keyword:\n %v value %v:\n\n", r.Keyword, r.Value)
+}
+
+func (r Return) Accept(visitor VisitStmt) any {
+	return visitor.VisitReturnStmt(r)
+}
+
+type Function struct {
+	Name       scanner.Token
+	Parameters []scanner.Token
+	Body       []Stmt
+}
+
+func NewFunction(name scanner.Token, parameters []scanner.Token, body []Stmt) Function {
+	return Function{
+		Name:       name,
+		Parameters: parameters,
+		Body:       body,
+	}
+}
+
+func (f Function) String() string {
+	return fmt.Sprintf("name:%v\n paramters:%v\n, body:%v\n\n", f.Name, f.Parameters, f.Body)
+}
+
+func (f Function) Accept(visitor VisitStmt) any {
+	return visitor.VisitFunctionStmt(f)
 }
 
 type VarDeclaration struct {

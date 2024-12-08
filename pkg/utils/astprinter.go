@@ -21,15 +21,16 @@ func (a *AstPrinter) VisitBinaryExpr(expr parser.Binary) any {
 	return a.parenthesize(expr.Operator.Lexeme, expr.Left, expr.Right)
 }
 
-/*
-	func (a *AstPrinter) VisitCallExpr(expr Call) any {
-		return a.parenthesize("call", append([]Expr{expr.Callee}, expr.Arguments...)...)
-	}
+func (a *AstPrinter) VisitCallExpr(expr parser.Call) any {
+	return a.parenthesize("call", append([]parser.Expr{expr.Callee}, expr.Arguments...)...)
+}
 
-	func (a *AstPrinter) VisitGetExpr(expr Get) any {
-		return a.parenthesize(fmt.Sprintf("get %v", expr.Name.Lexeme), expr.Object)
-	}
+/*
+func (a *AstPrinter) VisitGetExpr(expr Get) any {
+	return a.parenthesize(fmt.Sprintf("get %v", expr.Name.Lexeme), expr.Object)
+}
 */
+
 func (a *AstPrinter) VisitGroupingExpr(expr parser.Grouping) any {
 	return a.parenthesize("group", expr.Expr)
 }
@@ -100,9 +101,26 @@ func (a *AstPrinter) VisitVariableExpr(expr parser.Variable) any {
 	return expr.Name.Lexeme
 }
 
+func (a *AstPrinter) VisitFunctionStmt(stmt parser.Function) any {
+	var params []string
+	for _, param := range stmt.Parameters {
+		params = append(params, param.Lexeme)
+	}
+	bodyStatms := ""
+	for _, bodyStmt := range stmt.Body {
+		bodyStatms += a.print(bodyStmt)
+	}
+	return fmt.Sprintf("(fun %s (%s) %s)", stmt.Name.Lexeme, strings.Join(params, " "), bodyStatms)
+}
+
+func (a *AstPrinter) VisitReturnStmt(stmt parser.Return) any {
+	if stmt.Value != nil {
+		return fmt.Sprintf("(return %s)", a.parenthesize("value", stmt.Value))
+	}
+	return "(return)"
+}
+
 /*
-
-
 	func (a *AstPrinter) VisitClassStmt(stmt Class) any {
 		superclass := stmt.Superclass
 		var methods []string
@@ -111,29 +129,6 @@ func (a *AstPrinter) VisitVariableExpr(expr parser.Variable) any {
 		}
 		return fmt.Sprintf("(class %s superclass [%s] %s)", stmt.Name.Lexeme, a.VisitVariableExpr(superclass), strings.Join(methods, " "))
 	}
-
-	func (a *AstPrinter) VisitFunctionStmt(stmt Function) any {
-		var params []string
-		for _, param := range stmt.Params {
-			params = append(params, param.Lexeme)
-		}
-		bodyStatms := ""
-		for _, bodyStmt := range stmt.Body {
-			bodyStatms += a.print(bodyStmt)
-		}
-		return fmt.Sprintf("(fun %s (%s) %s)", stmt.Name.Lexeme, strings.Join(params, " "), bodyStatms)
-	}
-
-
-
-	func (a *AstPrinter) VisitReturnStmt(stmt Return) any {
-		if stmt.Value != nil {
-			return fmt.Sprintf("(return %s)", a.parenthesize("value", stmt.Value))
-		}
-		return "(return)"
-	}
-
-
 
 */
 

@@ -52,14 +52,71 @@ func (p *Parser) Parse() ([]Stmt, []*ParseError) {
 }
 
 func (p *Parser) declaration() (Stmt, *ParseError) {
-	if p.match(scanner.VAR) {
-		return p.varDeclaration()
+	if p.match(scanner.FUN) {
+		return p.function("function")
 	}
 	if p.match(scanner.FOR) {
 		return p.forStatement()
 	}
+	if p.match(scanner.VAR) {
+		return p.varDeclaration()
+	}
 
 	return p.statement()
+}
+
+func (p *Parser) function(kind string) (Stmt, *ParseError) {
+	name, parseErr := p.consume(scanner.IDENTIFIER, "Expect function "+kind+" name")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	_, parseErr = p.consume(scanner.LEFT_PAREN, "Expect '(' for function")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	parameters := []scanner.Token{}
+	var paramSizeErr *ParseError
+	if !p.check(scanner.RIGHT_PAREN) {
+		_, parseErr = p.consume(scanner.IDENTIFIER, "Expect identefier for parameter")
+		if parseErr != nil {
+			return nil, parseErr
+		}
+
+		parameters = append(parameters, p.previous())
+		for p.match(scanner.COMMA) {
+			if len(parameters) >= 255 {
+				paramSizeErr = newParseError(name, kind+"s have a max of 256 parameters")
+			}
+			_, parseErr = p.consume(scanner.IDENTIFIER, "Expect identefier for parameter")
+			if parseErr != nil {
+				return nil, parseErr
+			}
+			parameters = append(parameters, p.previous())
+		}
+	}
+
+	_, parseErr = p.consume(scanner.RIGHT_PAREN, "Expect ')' for function")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	_, parseErr = p.consume(scanner.LEFT_BRACE, "Expect '{' for block")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	body, parseErr := p.block()
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	if paramSizeErr != nil {
+		return nil, paramSizeErr
+	}
+
+	return NewFunction(name, parameters, body), nil
 }
 
 func (p *Parser) forStatement() (Stmt, *ParseError) {
@@ -166,11 +223,38 @@ func (p *Parser) statement() (Stmt, *ParseError) {
 	if p.match(scanner.IF) {
 		return p.ifStatement()
 	}
+	if p.match(scanner.RETURN) {
+		return p.returnStatemnt()
+	}
 	if p.match(scanner.LEFT_BRACE) {
-		return p.block()
+		statements, parseErr := p.block()
+		if parseErr != nil {
+			return nil, parseErr
+		}
+
+		return NewBlock(statements), nil
 	}
 
 	return p.expressionStatement()
+}
+
+func (p *Parser) returnStatemnt() (Stmt, *ParseError) {
+	keyword := p.previous()
+	var val Expr = nil
+	var parseErr *ParseError
+	if !p.check(scanner.SEMICOLON) {
+		val, parseErr = p.expression()
+		if parseErr != nil {
+			return nil, parseErr
+		}
+	}
+
+	_, parseErr = p.consume(scanner.SEMICOLON, "Expect ';' after expression")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	return NewReturn(keyword, val), nil
 }
 
 func (p *Parser) whileStatement() (Stmt, *ParseError) {
@@ -188,17 +272,12 @@ func (p *Parser) whileStatement() (Stmt, *ParseError) {
 		return nil, parseErr
 	}
 
-	_, parseErr = p.consume(scanner.LEFT_BRACE, "Expect '{' block start")
+	body, parseErr := p.statement()
 	if parseErr != nil {
 		return nil, parseErr
 	}
 
-	block, parseErr := p.block()
-	if parseErr != nil {
-		return nil, parseErr
-	}
-
-	return NewWhileStmt(expr, block), nil
+	return NewWhileStmt(expr, body), nil
 }
 
 func (p *Parser) ifStatement() (Stmt, *ParseError) {
@@ -222,7 +301,7 @@ func (p *Parser) ifStatement() (Stmt, *ParseError) {
 		return nil, parseErr
 	}
 
-	ifBracnh, parseErr := p.block()
+	ifBracnh, parseErr := p.statement()
 	if parseErr != nil {
 		return nil, parseErr
 	}
@@ -234,7 +313,7 @@ func (p *Parser) ifStatement() (Stmt, *ParseError) {
 			return nil, parseErr
 		}
 
-		elseBranch, parseErr = p.block()
+		elseBranch, parseErr = p.statement()
 		if parseErr != nil {
 			return nil, parseErr
 		}
@@ -243,7 +322,7 @@ func (p *Parser) ifStatement() (Stmt, *ParseError) {
 	return NewIfStmt(expr, ifBracnh, elseBranch), nil
 }
 
-func (p *Parser) block() (Stmt, *ParseError) {
+func (p *Parser) block() ([]Stmt, *ParseError) {
 	statemnts := []Stmt{}
 	for !p.isAtEnd() && !p.check(scanner.RIGHT_BRACE) {
 		statement, parseErr := p.declaration()
@@ -259,7 +338,7 @@ func (p *Parser) block() (Stmt, *ParseError) {
 		return nil, parseErr
 	}
 
-	return NewBlock(statemnts), nil
+	return statemnts, nil
 }
 
 func (p *Parser) expressionStatement() (Stmt, *ParseError) {
@@ -434,7 +513,62 @@ func (p *Parser) unary() (Expr, *ParseError) {
 		return NewUnary(right, operator), nil
 	}
 
-	return p.primary()
+	return p.call()
+}
+
+func (p *Parser) call() (Expr, *ParseError) {
+	name, parseErr := p.primary()
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	for {
+		if p.match(scanner.LEFT_PAREN) {
+			name, parseErr = p.finishCall(name)
+		} else {
+			break
+		}
+	}
+
+	return name, nil
+}
+
+func (p *Parser) finishCall(expr Expr) (Expr, *ParseError) {
+	arguments := []Expr{}
+
+	var argumentSizeErr *ParseError
+	if !p.check(scanner.RIGHT_PAREN) {
+		expr, parseErr := p.expression()
+		if parseErr != nil {
+			return nil, parseErr
+		}
+
+		arguments = append(arguments, expr)
+
+		for p.match(scanner.COMMA) {
+			if len(arguments) > 255 {
+				argumentSizeErr = newParseError(scanner.Token{}, "calls have a max of 256 parameters")
+			}
+
+			expr, parseErr := p.expression()
+			if parseErr != nil {
+				return nil, parseErr
+			}
+
+			arguments = append(arguments, expr)
+		}
+	}
+
+	paren, parseErr := p.consume(scanner.RIGHT_PAREN, "Expect ')' after call")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	if argumentSizeErr != nil {
+		argumentSizeErr.Token = paren
+		return nil, argumentSizeErr
+	}
+	return NewCall(expr, paren, arguments), nil
 }
 
 func (p *Parser) primary() (Expr, *ParseError) {

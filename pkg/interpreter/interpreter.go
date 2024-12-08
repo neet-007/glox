@@ -2,19 +2,41 @@ package interpreter
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/neet-007/glox/pkg/parser"
-	"github.com/neet-007/glox/pkg/resolver"
+	"github.com/neet-007/glox/pkg/runtime"
 	"github.com/neet-007/glox/pkg/scanner"
 )
 
 type Interpreter struct {
-	environment *resolver.Environment
+	globals     *runtime.Environment
+	environment *runtime.Environment
+}
+
+type clockNativeFunction struct{}
+
+func (c clockNativeFunction) Arity() int {
+	return 0
+}
+
+func (c clockNativeFunction) Call(interpreter *Interpreter, arguments []any) any {
+	return float64(time.Now().UnixNano()) / 1e9
+}
+
+func (c clockNativeFunction) String() string {
+	return "<fn native>"
 }
 
 func NewInterpreter() *Interpreter {
+	globals := runtime.NewEnvironment(nil)
+	clock := clockNativeFunction{}
+	var clockCallabe Callable = clock
+
+	globals.Define("clock", clockCallabe)
 	return &Interpreter{
-		environment: resolver.NewEnvironment(nil),
+		globals:     globals,
+		environment: globals,
 	}
 }
 
@@ -32,13 +54,53 @@ func (i *Interpreter) evaluate(expr parser.Expr) any {
 	return expr.Accept(i)
 }
 
+func (i *Interpreter) VisitReturnStmt(stmt parser.Return) any {
+	var val any = nil
+
+	if stmt.Value != nil {
+		val = i.evaluate(stmt.Value)
+	}
+
+	return runtime.NewReturn(val)
+}
+
+func (i *Interpreter) VisitCallExpr(expr parser.Call) any {
+	callee := i.evaluate(expr.Callee)
+
+	arguments := []any{}
+
+	for _, arg := range expr.Arguments {
+		argVal := i.evaluate(arg)
+		arguments = append(arguments, argVal)
+	}
+
+	callable, ok := callee.(Callable)
+	if !ok {
+		//!TODO error
+		return nil
+	}
+
+	if len(arguments) != callable.Arity() {
+		//!TODO error
+		return nil
+	}
+	return callable.Call(i, arguments)
+}
+
+func (i *Interpreter) VisitFunctionStmt(stmt parser.Function) any {
+	function := NewLoxFunction(stmt)
+	i.environment.Define(stmt.Name.Lexeme, function)
+
+	return nil
+}
+
 func (i *Interpreter) VisitVarDeclaration(stmt parser.VarDeclaration) any {
 	var initizlier any
 	if stmt.Initizlier != nil {
 		initizlier = i.evaluate(stmt.Initizlier)
 	}
 
-	i.environment.Define(stmt.Name, initizlier)
+	i.environment.Define(stmt.Name.Lexeme, initizlier)
 	return nil
 }
 
@@ -68,7 +130,7 @@ func (i *Interpreter) VisitIfStmt(stmt parser.IfStmt) any {
 }
 
 func (i *Interpreter) VisitBlockStmt(stmt parser.Block) any {
-	i.executeBlock(stmt.Statements, resolver.NewEnvironment(i.environment))
+	i.executeBlock(stmt.Statements, runtime.NewEnvironment(i.environment))
 
 	return nil
 }
@@ -268,7 +330,7 @@ func (i *Interpreter) VisitLiteralExpr(expr parser.Literal) any {
 	return expr.Value
 }
 
-func (i *Interpreter) executeBlock(stmts []parser.Stmt, enviroment *resolver.Environment) {
+func (i *Interpreter) executeBlock(stmts []parser.Stmt, enviroment *runtime.Environment) error {
 	prev := i.environment
 	i.environment = enviroment
 	for _, stmt_ := range stmts {
@@ -276,6 +338,7 @@ func (i *Interpreter) executeBlock(stmts []parser.Stmt, enviroment *resolver.Env
 	}
 
 	i.environment = prev
+	return nil
 }
 
 func (i *Interpreter) VisitUnaryExpr(expr parser.Unary) any {

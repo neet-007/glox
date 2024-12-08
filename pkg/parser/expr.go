@@ -5,6 +5,7 @@ import (
 )
 
 type VisitExpr interface {
+	VisitCallExpr(expr Call) any
 	VisitVariableExpr(expr Variable) any
 	VisitAssignExpr(expr Assign) any
 	VisitBinaryExpr(expr Binary) any
@@ -16,6 +17,24 @@ type VisitExpr interface {
 
 type Expr interface {
 	Accept(visitor VisitExpr) any
+}
+
+type Call struct {
+	Callee    Expr
+	Paren     scanner.Token
+	Arguments []Expr
+}
+
+func NewCall(callee Expr, paren scanner.Token, arguments []Expr) Call {
+	return Call{
+		Callee:    callee,
+		Paren:     paren,
+		Arguments: arguments,
+	}
+}
+
+func (c Call) Accept(visitor VisitExpr) any {
+	return visitor.VisitCallExpr(c)
 }
 
 type Variable struct {
