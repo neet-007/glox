@@ -17,7 +17,7 @@ func NewLoxFunction(stmt parser.Function) LoxFunction {
 	}
 }
 
-func (l LoxFunction) Call(interpreter *Interpreter, arguemnts []any) any {
+func (l LoxFunction) Call(interpreter *Interpreter, arguemnts []any) (any, error) {
 	enviroemnt := runtime.NewEnvironment(interpreter.environment)
 
 	for i := range l.Declaration.Parameters {
@@ -27,13 +27,13 @@ func (l LoxFunction) Call(interpreter *Interpreter, arguemnts []any) any {
 	err := interpreter.executeBlock(l.Declaration.Body, enviroemnt)
 	if err != nil {
 		if returnVal, ok := err.(*runtime.Return); ok {
-			return returnVal.Value
+			return returnVal.Value, nil
 		}
 
 		//!TODO error
-		panic(err)
+		return nil, err
 	}
-	return nil
+	return nil, nil
 }
 
 func (l LoxFunction) Arity() int {

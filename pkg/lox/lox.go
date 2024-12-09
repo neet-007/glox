@@ -82,15 +82,15 @@ func (l *Lox) run(source []byte) {
 	scanner := scanner.NewScanner(source)
 	tokens, scannerErrors := scanner.Scan()
 
-	for _, error := range scannerErrors {
-		l.error(error.Token, error.Message)
+	for _, err := range scannerErrors {
+		l.error(err.Token, err.Message)
 	}
 
 	parser_ := parser.NewParser(tokens)
 	statements, parserErrors := parser_.Parse()
 
-	for _, error := range parserErrors {
-		l.error(error.Token, error.Message)
+	for _, err := range parserErrors {
+		l.error(err.Token, err.Message)
 	}
 
 	if l.hadError {
@@ -98,7 +98,11 @@ func (l *Lox) run(source []byte) {
 	}
 
 	interpreter_ := interpreter.NewInterpreter()
-	interpreter_.Interpret(statements)
+	err := interpreter_.Interpret(statements)
+	if err != nil {
+		fmt.Println("here")
+		fmt.Printf("err %v\n", err)
+	}
 
 }
 

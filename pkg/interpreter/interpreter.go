@@ -20,8 +20,8 @@ func (c clockNativeFunction) Arity() int {
 	return 0
 }
 
-func (c clockNativeFunction) Call(interpreter *Interpreter, arguments []any) any {
-	return float64(time.Now().UnixNano()) / 1e9
+func (c clockNativeFunction) Call(interpreter *Interpreter, arguments []any) (any, error) {
+	return float64(time.Now().UnixNano()) / 1e9, nil
 }
 
 func (c clockNativeFunction) String() string {
@@ -40,14 +40,20 @@ func NewInterpreter() *Interpreter {
 	}
 }
 
-func (i *Interpreter) Interpret(stmts []parser.Stmt) {
+func (i *Interpreter) Interpret(stmts []parser.Stmt) *runtime.RuntimeError {
 	for _, stmt := range stmts {
 		err := i.execute(stmt)
 
 		if err != nil {
-			//!TODO error
+			if runtimeErr, ok := err.(*runtime.RuntimeError); ok {
+				return runtimeErr
+			}
+
+			panic(fmt.Sprintf("Excpect runtime error got %v", err))
 		}
 	}
+
+	return nil
 }
 
 func (i *Interpreter) execute(stmt parser.Stmt) error {
@@ -94,16 +100,17 @@ func (i *Interpreter) VisitCallExpr(expr parser.Call) (any, error) {
 
 	callable, ok := callee.(Callable)
 	if !ok {
-		//!TODO error
 		return nil, runtime.NewRuntimeError("not callable")
 	}
 
 	if len(arguments) != callable.Arity() {
-		//!TODO error
 		return nil, runtime.NewRuntimeError(fmt.Sprintf("expect %d parameters got %d arguments", len(arguments), callable.Arity()))
 	}
 
-	callVal := callable.Call(i, arguments)
+	callVal, err := callable.Call(i, arguments)
+	if err != nil {
+		return nil, err
+	}
 
 	//fmt.Printf("return val %v\n", callVal)
 	return callVal, nil
@@ -140,7 +147,10 @@ func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) (any, error) {
 		return nil, err
 	}
 
-	conditionTruthy := i.isTruthy(condition)
+	conditionTruthy, tErr := i.isTruthy(condition)
+	if tErr != nil {
+		return nil, tErr
+	}
 
 	for conditionTruthy {
 		stmt.Body.Accept(i)
@@ -149,7 +159,10 @@ func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		conditionTruthy = i.isTruthy(condition)
+		conditionTruthy, tErr = i.isTruthy(condition)
+		if tErr != nil {
+			return nil, tErr
+		}
 	}
 	return nil, nil
 }
@@ -161,7 +174,10 @@ func (i *Interpreter) VisitIfStmt(stmt parser.IfStmt) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	conditionTruthy := i.isTruthy(condition)
+	conditionTruthy, tErr := i.isTruthy(condition)
+	if tErr != nil {
+		return nil, tErr
+	}
 
 	if conditionTruthy {
 		_, err = stmt.ThenBranch.Accept(i)
@@ -215,7 +231,6 @@ func (i *Interpreter) VisitAssignExpr(expr parser.Assign) (any, error) {
 	//fmt.Printf("visit assinge expr %s %v\n", expr.Lexem, val)
 	err = i.environment.Assign(expr.Lexem, val)
 	if err != nil {
-		//!TODO error
 		return nil, err
 	}
 
@@ -226,7 +241,6 @@ func (i *Interpreter) VisitVariableExpr(expr parser.Variable) (any, error) {
 	//fmt.Println("visit var expr")
 	val, err := i.environment.Get(expr.Name)
 	if err != nil {
-		//!TODO error
 		return nil, err
 	}
 
@@ -252,7 +266,6 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
-				//!TODO error
 				return nil, err
 			}
 
@@ -263,7 +276,6 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
-				//!TODO error
 				return nil, err
 			}
 
@@ -273,7 +285,6 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
-				//!TODO error
 				return nil, err
 			}
 
@@ -293,13 +304,11 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 				}
 			}
 
-			//!TODO error
-			return nil, err
+			return nil, runtime.NewRuntimeError("Expect binary operands to be strings")
 		}
 	default:
 		{
-			//!TODO error
-			return nil, nil
+			return nil, runtime.NewRuntimeError("Excpect binray operator to be -, +, *, /")
 		}
 	}
 }
@@ -322,7 +331,6 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
-				//!TODO error
 				return nil, err
 			}
 
@@ -333,7 +341,6 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
-				//!TODO error
 				return nil, err
 			}
 
@@ -344,7 +351,6 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
-				//!TODO error
 				return nil, err
 			}
 
@@ -354,7 +360,6 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
-				//!TODO error
 				return nil, err
 			}
 
@@ -377,8 +382,7 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 				}
 			}
 
-			//!TODO error
-			return nil, err
+			return nil, runtime.NewRuntimeError("Expect binary operands to be strings")
 		}
 	case scanner.BANG_EQUAL:
 		{
@@ -397,13 +401,11 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 				}
 			}
 
-			//!TODO error
-			return nil, err
+			return nil, runtime.NewRuntimeError("Expect binary operands to be strings")
 		}
 	default:
 		{
-			//!TODO error
-			return nil, nil
+			return nil, runtime.NewRuntimeError("Excpect logical operator to be >, >=. <, <=, !=, ==")
 		}
 	}
 }
@@ -448,7 +450,6 @@ func (i *Interpreter) VisitUnaryExpr(expr parser.Unary) (any, error) {
 		{
 			rigthNum, err := i.checkNumberOperand(expr.Operator, rigthVal)
 			if err != nil {
-				//!TODO error
 				return nil, err
 			}
 			return -rigthNum, nil
@@ -456,48 +457,47 @@ func (i *Interpreter) VisitUnaryExpr(expr parser.Unary) (any, error) {
 		}
 	case scanner.BANG:
 		{
-			rigthTruthy := i.isTruthy(rigthVal)
+			rigthTruthy, err := i.isTruthy(rigthVal)
+			if err != nil {
+				return nil, err
+			}
 			return !rigthTruthy, nil
 		}
 	default:
 		{
-			//!TODO error
-			return nil, nil
+			return nil, runtime.NewRuntimeError("Expect unary operator to be -, !")
 		}
 	}
 }
 
-func (i *Interpreter) isTruthy(value any) bool {
+func (i *Interpreter) isTruthy(value any) (bool, *runtime.RuntimeError) {
 	if strVal, ok := value.(string); ok {
-		return strVal != ""
+		return strVal != "", nil
 	}
 	if numVal, ok := value.(float64); ok {
-		return numVal != 0
+		return numVal != 0, nil
 	}
 	if boolVal, ok := value.(bool); ok {
-		return boolVal
+		return boolVal, nil
 	}
 
-	//!TODO error
-	return false
+	return false, runtime.NewRuntimeError("Unexpected value")
 }
 
-func (i *Interpreter) checkNumberOperand(operator scanner.Token, operand any) (float64, error) {
+func (i *Interpreter) checkNumberOperand(operator scanner.Token, operand any) (float64, *runtime.RuntimeError) {
 	if val, ok := operand.(float64); ok {
 		return val, nil
 	}
 
-	//!TODO error
-	return 0, nil
+	return 0, runtime.NewRuntimeError("Expect operands to be numbers")
 }
 
-func (i *Interpreter) checkNumberOperands(operator scanner.Token, operandLeft any, operandRight any) (float64, float64, error) {
+func (i *Interpreter) checkNumberOperands(operator scanner.Token, operandLeft any, operandRight any) (float64, float64, *runtime.RuntimeError) {
 	if valleft, okLeft := operandLeft.(float64); okLeft {
 		if valRight, okRight := operandRight.(float64); okRight {
 			return valleft, valRight, nil
 		}
 	}
 
-	//!TODO error
-	return 0, 0, nil
+	return 0, 0, runtime.NewRuntimeError("Expect operands to be numbers")
 }

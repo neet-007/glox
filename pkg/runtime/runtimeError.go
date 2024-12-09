@@ -7,6 +7,7 @@ type RuntimeError struct {
 }
 
 func NewRuntimeError(message string) *RuntimeError {
+	fmt.Printf("Creating RuntimeError with message: %s\n", message)
 	return &RuntimeError{
 		Message: message,
 	}
