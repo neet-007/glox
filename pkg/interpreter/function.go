@@ -31,7 +31,7 @@ func (l LoxFunction) Call(interpreter *Interpreter, arguemnts []any) any {
 		}
 
 		//!TODO error
-		return nil
+		panic(err)
 	}
 	return nil
 }

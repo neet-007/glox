@@ -296,11 +296,6 @@ func (p *Parser) ifStatement() (Stmt, *ParseError) {
 		return nil, parseErr
 	}
 
-	_, parseErr = p.consume(scanner.LEFT_BRACE, "Expect '{' block start")
-	if parseErr != nil {
-		return nil, parseErr
-	}
-
 	ifBracnh, parseErr := p.statement()
 	if parseErr != nil {
 		return nil, parseErr
@@ -308,11 +303,6 @@ func (p *Parser) ifStatement() (Stmt, *ParseError) {
 
 	var elseBranch Stmt
 	if p.match(scanner.ELSE) {
-		_, parseErr = p.consume(scanner.LEFT_BRACE, "Expect '{' block after if statemnt")
-		if parseErr != nil {
-			return nil, parseErr
-		}
-
 		elseBranch, parseErr = p.statement()
 		if parseErr != nil {
 			return nil, parseErr

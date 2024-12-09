@@ -8,18 +8,18 @@ import (
 )
 
 type VisitStmt interface {
-	VisitReturnStmt(stmt Return) any
-	VisitFunctionStmt(stmt Function) any
-	VisitVarDeclaration(stmt VarDeclaration) any
-	VisitWhileStmt(stmt WhileStmt) any
-	VisitBlockStmt(stmt Block) any
-	VisitIfStmt(stmt IfStmt) any
-	VisitExpressionStmt(stmt ExpressionStmt) any
-	VisitPrintStmt(stmt PrintStmt) any
+	VisitReturnStmt(stmt Return) (any, error)
+	VisitFunctionStmt(stmt Function) (any, error)
+	VisitVarDeclaration(stmt VarDeclaration) (any, error)
+	VisitWhileStmt(stmt WhileStmt) (any, error)
+	VisitBlockStmt(stmt Block) (any, error)
+	VisitIfStmt(stmt IfStmt) (any, error)
+	VisitExpressionStmt(stmt ExpressionStmt) (any, error)
+	VisitPrintStmt(stmt PrintStmt) (any, error)
 }
 
 type Stmt interface {
-	Accept(visitor VisitStmt) any
+	Accept(visitor VisitStmt) (any, error)
 }
 
 type Return struct {
@@ -38,7 +38,7 @@ func (r Return) String() string {
 	return fmt.Sprintf("return keyword:\n %v value %v:\n\n", r.Keyword, r.Value)
 }
 
-func (r Return) Accept(visitor VisitStmt) any {
+func (r Return) Accept(visitor VisitStmt) (any, error) {
 	return visitor.VisitReturnStmt(r)
 }
 
@@ -60,7 +60,7 @@ func (f Function) String() string {
 	return fmt.Sprintf("name:%v\n paramters:%v\n, body:%v\n\n", f.Name, f.Parameters, f.Body)
 }
 
-func (f Function) Accept(visitor VisitStmt) any {
+func (f Function) Accept(visitor VisitStmt) (any, error) {
 	return visitor.VisitFunctionStmt(f)
 }
 
@@ -80,7 +80,7 @@ func NewVarDeclaration(name scanner.Token, initizlier Expr) VarDeclaration {
 	}
 }
 
-func (v VarDeclaration) Accept(visitor VisitStmt) any {
+func (v VarDeclaration) Accept(visitor VisitStmt) (any, error) {
 	return visitor.VisitVarDeclaration(v)
 }
 
@@ -100,7 +100,7 @@ func NewWhileStmt(condition Expr, block Stmt) WhileStmt {
 	}
 }
 
-func (w WhileStmt) Accept(visitor VisitStmt) any {
+func (w WhileStmt) Accept(visitor VisitStmt) (any, error) {
 	return visitor.VisitWhileStmt(w)
 }
 
@@ -124,7 +124,7 @@ func NewBlock(statements []Stmt) Block {
 	}
 }
 
-func (b Block) Accept(visitor VisitStmt) any {
+func (b Block) Accept(visitor VisitStmt) (any, error) {
 	return visitor.VisitBlockStmt(b)
 }
 
@@ -142,7 +142,7 @@ func NewIfStmt(condition Expr, thenBranch Stmt, elseBranch Stmt) IfStmt {
 	return IfStmt{condition, thenBranch, elseBranch}
 }
 
-func (i IfStmt) Accept(visitor VisitStmt) any {
+func (i IfStmt) Accept(visitor VisitStmt) (any, error) {
 	return visitor.VisitIfStmt(i)
 }
 
@@ -160,7 +160,7 @@ func NewExpressionStmt(expr Expr) ExpressionStmt {
 	}
 }
 
-func (e ExpressionStmt) Accept(visitor VisitStmt) any {
+func (e ExpressionStmt) Accept(visitor VisitStmt) (any, error) {
 	return visitor.VisitExpressionStmt(e)
 }
 
@@ -178,6 +178,6 @@ func NewPrintStmt(expr Expr) PrintStmt {
 	}
 }
 
-func (p PrintStmt) Accept(visitor VisitStmt) any {
+func (p PrintStmt) Accept(visitor VisitStmt) (any, error) {
 	return visitor.VisitPrintStmt(p)
 }

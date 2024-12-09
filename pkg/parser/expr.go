@@ -5,18 +5,18 @@ import (
 )
 
 type VisitExpr interface {
-	VisitCallExpr(expr Call) any
-	VisitVariableExpr(expr Variable) any
-	VisitAssignExpr(expr Assign) any
-	VisitBinaryExpr(expr Binary) any
-	VisitGroupingExpr(expr Grouping) any
-	VisitLiteralExpr(expr Literal) any
-	VisitLogicalExpr(expr Logical) any
-	VisitUnaryExpr(expr Unary) any
+	VisitCallExpr(expr Call) (any, error)
+	VisitVariableExpr(expr Variable) (any, error)
+	VisitAssignExpr(expr Assign) (any, error)
+	VisitBinaryExpr(expr Binary) (any, error)
+	VisitGroupingExpr(expr Grouping) (any, error)
+	VisitLiteralExpr(expr Literal) (any, error)
+	VisitLogicalExpr(expr Logical) (any, error)
+	VisitUnaryExpr(expr Unary) (any, error)
 }
 
 type Expr interface {
-	Accept(visitor VisitExpr) any
+	Accept(visitor VisitExpr) (any, error)
 }
 
 type Call struct {
@@ -33,7 +33,7 @@ func NewCall(callee Expr, paren scanner.Token, arguments []Expr) Call {
 	}
 }
 
-func (c Call) Accept(visitor VisitExpr) any {
+func (c Call) Accept(visitor VisitExpr) (any, error) {
 	return visitor.VisitCallExpr(c)
 }
 
@@ -47,7 +47,7 @@ func NewVariable(name scanner.Token) Variable {
 	}
 }
 
-func (v Variable) Accept(visitor VisitExpr) any {
+func (v Variable) Accept(visitor VisitExpr) (any, error) {
 	return visitor.VisitVariableExpr(v)
 }
 
@@ -63,7 +63,7 @@ func NewAssign(lexem scanner.Token, expr Expr) Assign {
 	}
 }
 
-func (a Assign) Accept(visitor VisitExpr) any {
+func (a Assign) Accept(visitor VisitExpr) (any, error) {
 	return visitor.VisitAssignExpr(a)
 }
 
@@ -81,7 +81,7 @@ func NewBinary(left Expr, right Expr, operator scanner.Token) Binary {
 	}
 }
 
-func (b Binary) Accept(visitor VisitExpr) any {
+func (b Binary) Accept(visitor VisitExpr) (any, error) {
 	return visitor.VisitBinaryExpr(b)
 }
 
@@ -95,7 +95,7 @@ func NewGrouping(expr Expr) Grouping {
 	}
 }
 
-func (g Grouping) Accept(visitor VisitExpr) any {
+func (g Grouping) Accept(visitor VisitExpr) (any, error) {
 	return visitor.VisitGroupingExpr(g)
 }
 
@@ -109,7 +109,7 @@ func NewLiteral(value any) Literal {
 	}
 }
 
-func (l Literal) Accept(visitor VisitExpr) any {
+func (l Literal) Accept(visitor VisitExpr) (any, error) {
 	return visitor.VisitLiteralExpr(l)
 }
 
@@ -127,7 +127,7 @@ func NewLogical(left Expr, right Expr, operator scanner.Token) Logical {
 	}
 }
 
-func (l Logical) Accept(visitor VisitExpr) any {
+func (l Logical) Accept(visitor VisitExpr) (any, error) {
 	return visitor.VisitLogicalExpr(l)
 }
 
@@ -143,6 +143,6 @@ func NewUnary(right Expr, operator scanner.Token) Unary {
 	}
 }
 
-func (u Unary) Accept(visitor VisitExpr) any {
+func (u Unary) Accept(visitor VisitExpr) (any, error) {
 	return visitor.VisitUnaryExpr(u)
 }

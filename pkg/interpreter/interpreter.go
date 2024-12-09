@@ -42,144 +42,221 @@ func NewInterpreter() *Interpreter {
 
 func (i *Interpreter) Interpret(stmts []parser.Stmt) {
 	for _, stmt := range stmts {
-		i.execute(stmt)
+		err := i.execute(stmt)
+
+		if err != nil {
+			//!TODO error
+		}
 	}
 }
 
-func (i *Interpreter) execute(stmt parser.Stmt) {
-	stmt.Accept(i)
+func (i *Interpreter) execute(stmt parser.Stmt) error {
+	_, err := stmt.Accept(i)
+	return err
 }
 
-func (i *Interpreter) evaluate(expr parser.Expr) any {
+func (i *Interpreter) evaluate(expr parser.Expr) (any, error) {
 	return expr.Accept(i)
 }
 
-func (i *Interpreter) VisitReturnStmt(stmt parser.Return) any {
+func (i *Interpreter) VisitReturnStmt(stmt parser.Return) (any, error) {
+	//fmt.Println("visit return")
 	var val any = nil
-
+	var err error
 	if stmt.Value != nil {
-		val = i.evaluate(stmt.Value)
+		val, err = i.evaluate(stmt.Value)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return runtime.NewReturn(val)
+	//fmt.Printf("visit return val %v\n", val)
+	return nil, runtime.NewReturn(val)
 }
 
-func (i *Interpreter) VisitCallExpr(expr parser.Call) any {
-	callee := i.evaluate(expr.Callee)
+func (i *Interpreter) VisitCallExpr(expr parser.Call) (any, error) {
+	//fmt.Println("visit call")
+	callee, err := i.evaluate(expr.Callee)
+	if err != nil {
+		return nil, err
+	}
 
 	arguments := []any{}
 
 	for _, arg := range expr.Arguments {
-		argVal := i.evaluate(arg)
+		argVal, err := i.evaluate(arg)
+		if err != nil {
+			return nil, err
+		}
+
 		arguments = append(arguments, argVal)
 	}
 
 	callable, ok := callee.(Callable)
 	if !ok {
 		//!TODO error
-		return nil
+		return nil, runtime.NewRuntimeError("not callable")
 	}
 
 	if len(arguments) != callable.Arity() {
 		//!TODO error
-		return nil
+		return nil, runtime.NewRuntimeError(fmt.Sprintf("expect %d parameters got %d arguments", len(arguments), callable.Arity()))
 	}
-	return callable.Call(i, arguments)
+
+	callVal := callable.Call(i, arguments)
+
+	//fmt.Printf("return val %v\n", callVal)
+	return callVal, nil
 }
 
-func (i *Interpreter) VisitFunctionStmt(stmt parser.Function) any {
+func (i *Interpreter) VisitFunctionStmt(stmt parser.Function) (any, error) {
+	//fmt.Println("visit function stmt")
 	function := NewLoxFunction(stmt)
 	i.environment.Define(stmt.Name.Lexeme, function)
 
-	return nil
+	return nil, nil
 }
 
-func (i *Interpreter) VisitVarDeclaration(stmt parser.VarDeclaration) any {
+func (i *Interpreter) VisitVarDeclaration(stmt parser.VarDeclaration) (any, error) {
+	//fmt.Println("visit var dec")
 	var initizlier any
+	var err error
 	if stmt.Initizlier != nil {
-		initizlier = i.evaluate(stmt.Initizlier)
+		initizlier, err = i.evaluate(stmt.Initizlier)
+		if err != nil {
+			return nil, err
+		}
 	}
 
+	//fmt.Printf("visit var dec %s %v\n", stmt.Name.Lexeme, initizlier)
 	i.environment.Define(stmt.Name.Lexeme, initizlier)
-	return nil
+	return nil, nil
 }
 
-func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) any {
-	condition := i.evaluate(stmt.Condition)
+func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) (any, error) {
+	//fmt.Println("visit while")
+	condition, err := i.evaluate(stmt.Condition)
+	if err != nil {
+		return nil, err
+	}
+
 	conditionTruthy := i.isTruthy(condition)
 
 	for conditionTruthy {
 		stmt.Body.Accept(i)
-		condition = i.evaluate(stmt.Condition)
+		condition, err = i.evaluate(stmt.Condition)
+
+		if err != nil {
+			return nil, err
+		}
 		conditionTruthy = i.isTruthy(condition)
 	}
-	return nil
+	return nil, nil
 }
 
-func (i *Interpreter) VisitIfStmt(stmt parser.IfStmt) any {
-	condition := i.evaluate(stmt.Condition)
+func (i *Interpreter) VisitIfStmt(stmt parser.IfStmt) (any, error) {
+	//fmt.Println("visit if stmt")
+	condition, err := i.evaluate(stmt.Condition)
+
+	if err != nil {
+		return nil, err
+	}
 	conditionTruthy := i.isTruthy(condition)
 
 	if conditionTruthy {
-		stmt.ThenBranch.Accept(i)
-	} else {
-		stmt.ElseBranch.Accept(i)
+		_, err = stmt.ThenBranch.Accept(i)
+		if err != nil {
+			return nil, err
+		}
+	} else if stmt.ElseBranch != nil {
+		_, err = stmt.ElseBranch.Accept(i)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return nil
+	return nil, nil
 }
 
-func (i *Interpreter) VisitBlockStmt(stmt parser.Block) any {
-	i.executeBlock(stmt.Statements, runtime.NewEnvironment(i.environment))
+func (i *Interpreter) VisitBlockStmt(stmt parser.Block) (any, error) {
+	//fmt.Println("visit block")
+	err := i.executeBlock(stmt.Statements, runtime.NewEnvironment(i.environment))
 
-	return nil
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
 }
 
-func (i *Interpreter) VisitExpressionStmt(stmt parser.ExpressionStmt) any {
+func (i *Interpreter) VisitExpressionStmt(stmt parser.ExpressionStmt) (any, error) {
+	//fmt.Println("visit expr stmt")
 	return i.evaluate(stmt.Expression)
 }
 
-func (i *Interpreter) VisitPrintStmt(stmt parser.PrintStmt) any {
-	val := i.evaluate(stmt.Expression)
+func (i *Interpreter) VisitPrintStmt(stmt parser.PrintStmt) (any, error) {
+	//fmt.Println("visit print")
+	val, err := i.evaluate(stmt.Expression)
+	if err != nil {
+		return nil, err
+	}
+	//fmt.Printf("visit print val %v\n", val)
 	fmt.Printf("%v\n", val)
-	return nil
+	return nil, nil
 }
 
-func (i *Interpreter) VisitAssignExpr(expr parser.Assign) any {
-	val := i.evaluate(expr.Expr)
+func (i *Interpreter) VisitAssignExpr(expr parser.Assign) (any, error) {
+	//fmt.Println("visit asggine expr")
+	val, err := i.evaluate(expr.Expr)
 
-	err := i.environment.Assign(expr.Lexem, val)
 	if err != nil {
-		//!TODO error
-		return nil
+		return nil, err
 	}
 
-	return val
+	//fmt.Printf("visit assinge expr %s %v\n", expr.Lexem, val)
+	err = i.environment.Assign(expr.Lexem, val)
+	if err != nil {
+		//!TODO error
+		return nil, err
+	}
+
+	return val, nil
 }
 
-func (i *Interpreter) VisitVariableExpr(expr parser.Variable) any {
+func (i *Interpreter) VisitVariableExpr(expr parser.Variable) (any, error) {
+	//fmt.Println("visit var expr")
 	val, err := i.environment.Get(expr.Name)
 	if err != nil {
 		//!TODO error
-		return nil
+		return nil, err
 	}
 
-	return val
+	//fmt.Printf("visit var expr %s %v\n", expr.Name.Lexeme, val)
+	return val, nil
 }
 
-func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) any {
-	leftVal := i.evaluate(expr.Left)
-	rightVal := i.evaluate(expr.Right)
+func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
+	//fmt.Println("visit binary expr")
+	leftVal, err := i.evaluate(expr.Left)
+	if err != nil {
+		return nil, err
+	}
+
+	rightVal, err := i.evaluate(expr.Right)
+	if err != nil {
+		return nil, err
+	}
+
+	//fmt.Printf("visit binary expr %v %v\n", leftVal, rightVal)
 	switch expr.Operator.TokenType {
 	case scanner.MINUS:
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
 				//!TODO error
-				return nil
+				return nil, err
 			}
 
-			return left - right
+			return left - right, nil
 
 		}
 	case scanner.STAR:
@@ -187,60 +264,69 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) any {
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
 				//!TODO error
-				return nil
+				return nil, err
 			}
 
-			return left * right
+			return left * right, nil
 		}
 	case scanner.SLASH:
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
 				//!TODO error
-				return nil
+				return nil, err
 			}
 
-			return left / right
+			return left / right, nil
 
 		}
 	case scanner.PLUS:
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err == nil {
-				return left + right
+				return left + right, nil
 			}
 
 			if strLeft, ok := leftVal.(string); ok {
 				if strRight, ok := rightVal.(string); ok {
-					return strLeft + strRight
+					return strLeft + strRight, nil
 				}
 			}
 
 			//!TODO error
-			return nil
+			return nil, err
 		}
 	default:
 		{
 			//!TODO error
-			return nil
+			return nil, nil
 		}
 	}
 }
 
-func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) any {
-	leftVal := i.evaluate(expr.Left)
-	rightVal := i.evaluate(expr.Right)
+func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
+	//fmt.Println("visit logicla expr")
+	leftVal, err := i.evaluate(expr.Left)
+	if err != nil {
+		return nil, err
+	}
 
+	rightVal, err := i.evaluate(expr.Right)
+	if err != nil {
+		return nil, err
+	}
+
+	//fmt.Printf("visit logical expr %v %v\n", leftVal, rightVal)
 	switch expr.Operator.TokenType {
 	case scanner.GREATER:
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
 				//!TODO error
-				return nil
+				return nil, err
 			}
 
-			return left > right
+			return left > right, nil
 		}
 	case scanner.GREATER_EQUAL:
 		{
@@ -248,10 +334,10 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) any {
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
 				//!TODO error
-				return nil
+				return nil, err
 			}
 
-			return left >= right
+			return left >= right, nil
 		}
 	case scanner.LESS:
 		{
@@ -259,90 +345,103 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) any {
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
 				//!TODO error
-				return nil
+				return nil, err
 			}
 
-			return left < right
+			return left < right, nil
 		}
 	case scanner.LESS_EQUAL:
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
 				//!TODO error
-				return nil
+				return nil, err
 			}
 
-			return left <= right
+			return left <= right, nil
 		}
 	case scanner.EQUAL_EQUAL:
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err == nil {
 				if expr.Operator.TokenType == scanner.EQUAL_EQUAL {
-					return left == right
+					return left == right, nil
 				} else {
-					return left != right
+					return left != right, nil
 				}
 			}
 
 			if strLeft, ok := leftVal.(string); ok {
 				if strRight, ok := rightVal.(string); ok {
-					return strLeft == strRight
+					return strLeft == strRight, nil
 				}
 			}
 
 			//!TODO error
-			return nil
+			return nil, err
 		}
 	case scanner.BANG_EQUAL:
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err == nil {
 				if expr.Operator.TokenType == scanner.EQUAL_EQUAL {
-					return left == right
+					return left == right, nil
 				} else {
-					return left != right
+					return left != right, nil
 				}
 			}
 
 			if strLeft, ok := leftVal.(string); ok {
 				if strRight, ok := rightVal.(string); ok {
-					return strLeft != strRight
+					return strLeft != strRight, nil
 				}
 			}
 
 			//!TODO error
-			return nil
+			return nil, err
 		}
 	default:
 		{
 			//!TODO error
-			return nil
+			return nil, nil
 		}
 	}
 }
 
-func (i *Interpreter) VisitGroupingExpr(expr parser.Grouping) any {
+func (i *Interpreter) VisitGroupingExpr(expr parser.Grouping) (any, error) {
+	//fmt.Println("visit grpuing")
 	return i.evaluate(expr.Expr)
 }
 
-func (i *Interpreter) VisitLiteralExpr(expr parser.Literal) any {
-	return expr.Value
+func (i *Interpreter) VisitLiteralExpr(expr parser.Literal) (any, error) {
+	//fmt.Println("visit literal")
+	//fmt.Printf("visit literal %v\n", expr.Value)
+	return expr.Value, nil
 }
 
 func (i *Interpreter) executeBlock(stmts []parser.Stmt, enviroment *runtime.Environment) error {
+	//fmt.Println("ecvute block")
 	prev := i.environment
 	i.environment = enviroment
 	for _, stmt_ := range stmts {
-		stmt_.Accept(i)
+		_, err := stmt_.Accept(i)
+		if err != nil {
+			i.environment = prev
+			return err
+		}
 	}
 
 	i.environment = prev
 	return nil
 }
 
-func (i *Interpreter) VisitUnaryExpr(expr parser.Unary) any {
-	rigthVal := i.evaluate(expr.Right)
+func (i *Interpreter) VisitUnaryExpr(expr parser.Unary) (any, error) {
+	//fmt.Println("visit unraty ")
+	rigthVal, err := i.evaluate(expr.Right)
+
+	if err != nil {
+		return nil, err
+	}
 
 	switch expr.Operator.TokenType {
 	case scanner.MINUS:
@@ -350,20 +449,20 @@ func (i *Interpreter) VisitUnaryExpr(expr parser.Unary) any {
 			rigthNum, err := i.checkNumberOperand(expr.Operator, rigthVal)
 			if err != nil {
 				//!TODO error
-				return nil
+				return nil, err
 			}
-			return -rigthNum
+			return -rigthNum, nil
 
 		}
 	case scanner.BANG:
 		{
 			rigthTruthy := i.isTruthy(rigthVal)
-			return !rigthTruthy
+			return !rigthTruthy, nil
 		}
 	default:
 		{
 			//!TODO error
-			return nil
+			return nil, nil
 		}
 	}
 }
