@@ -8,17 +8,19 @@ import (
 )
 
 type LoxFunction struct {
+	closure     *runtime.Environment
 	Declaration parser.Function
 }
 
-func NewLoxFunction(stmt parser.Function) LoxFunction {
+func NewLoxFunction(stmt parser.Function, closure *runtime.Environment) LoxFunction {
 	return LoxFunction{
+		closure:     closure,
 		Declaration: stmt,
 	}
 }
 
 func (l LoxFunction) Call(interpreter *Interpreter, arguemnts []any) (any, error) {
-	enviroemnt := runtime.NewEnvironment(interpreter.environment)
+	enviroemnt := runtime.NewEnvironment(l.closure)
 
 	for i := range l.Declaration.Parameters {
 		enviroemnt.Define(l.Declaration.Parameters[i].Lexeme, arguemnts[i])
@@ -30,7 +32,7 @@ func (l LoxFunction) Call(interpreter *Interpreter, arguemnts []any) (any, error
 			return returnVal.Value, nil
 		}
 
-		//!TODO error
+		fmt.Printf("call func 3 err : %v (type: %T)\n", err, err)
 		return nil, err
 	}
 	return nil, nil

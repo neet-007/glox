@@ -107,9 +107,9 @@ func (i *Interpreter) VisitCallExpr(expr parser.Call) (any, error) {
 		return nil, runtime.NewRuntimeError(fmt.Sprintf("expect %d parameters got %d arguments", len(arguments), callable.Arity()))
 	}
 
-	callVal, err := callable.Call(i, arguments)
-	if err != nil {
-		return nil, err
+	callVal, tErr := callable.Call(i, arguments)
+	if tErr != nil {
+		return nil, tErr
 	}
 
 	//fmt.Printf("return val %v\n", callVal)
@@ -118,7 +118,7 @@ func (i *Interpreter) VisitCallExpr(expr parser.Call) (any, error) {
 
 func (i *Interpreter) VisitFunctionStmt(stmt parser.Function) (any, error) {
 	//fmt.Println("visit function stmt")
-	function := NewLoxFunction(stmt)
+	function := NewLoxFunction(stmt, i.environment)
 	i.environment.Define(stmt.Name.Lexeme, function)
 
 	return nil, nil
@@ -229,9 +229,9 @@ func (i *Interpreter) VisitAssignExpr(expr parser.Assign) (any, error) {
 	}
 
 	//fmt.Printf("visit assinge expr %s %v\n", expr.Lexem, val)
-	err = i.environment.Assign(expr.Lexem, val)
-	if err != nil {
-		return nil, err
+	tErr := i.environment.Assign(expr.Lexem, val)
+	if tErr != nil {
+		return nil, tErr
 	}
 
 	return val, nil
