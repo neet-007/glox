@@ -12,6 +12,7 @@ import (
 type Interpreter struct {
 	globals     *runtime.Environment
 	environment *runtime.Environment
+	locals      map[parser.Expr]int
 }
 
 type clockNativeFunction struct{}
@@ -37,6 +38,7 @@ func NewInterpreter() *Interpreter {
 	return &Interpreter{
 		globals:     globals,
 		environment: globals,
+		locals:      map[parser.Expr]int{},
 	}
 }
 
@@ -56,6 +58,10 @@ func (i *Interpreter) Interpret(stmts []parser.Stmt) *runtime.RuntimeError {
 	return nil
 }
 
+func (i *Interpreter) ResolveExpr(expr parser.Expr, depth int) {
+	i.locals[expr] = depth
+}
+
 func (i *Interpreter) execute(stmt parser.Stmt) error {
 	_, err := stmt.Accept(i)
 	return err
@@ -72,6 +78,7 @@ func (i *Interpreter) VisitReturnStmt(stmt parser.Return) (any, error) {
 	if stmt.Value != nil {
 		val, err = i.evaluate(stmt.Value)
 		if err != nil {
+			fmt.Printf("returm err: %v %T\n", err, err)
 			return nil, err
 		}
 	}
@@ -84,6 +91,7 @@ func (i *Interpreter) VisitCallExpr(expr parser.Call) (any, error) {
 	//fmt.Println("visit call")
 	callee, err := i.evaluate(expr.Callee)
 	if err != nil {
+		fmt.Printf("call 1 err: %v %T\n", err, err)
 		return nil, err
 	}
 
@@ -92,6 +100,7 @@ func (i *Interpreter) VisitCallExpr(expr parser.Call) (any, error) {
 	for _, arg := range expr.Arguments {
 		argVal, err := i.evaluate(arg)
 		if err != nil {
+			fmt.Printf("call 2 err: %v %T\n", err, err)
 			return nil, err
 		}
 
@@ -109,6 +118,7 @@ func (i *Interpreter) VisitCallExpr(expr parser.Call) (any, error) {
 
 	callVal, tErr := callable.Call(i, arguments)
 	if tErr != nil {
+		fmt.Printf("call 3 err: %v %T\n", err, err)
 		return nil, tErr
 	}
 
@@ -131,6 +141,7 @@ func (i *Interpreter) VisitVarDeclaration(stmt parser.VarDeclaration) (any, erro
 	if stmt.Initizlier != nil {
 		initizlier, err = i.evaluate(stmt.Initizlier)
 		if err != nil {
+			fmt.Printf("var dec err: %v %T\n", err, err)
 			return nil, err
 		}
 	}
@@ -144,11 +155,13 @@ func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) (any, error) {
 	//fmt.Println("visit while")
 	condition, err := i.evaluate(stmt.Condition)
 	if err != nil {
+		fmt.Printf("while 1  err: %v %T\n", err, err)
 		return nil, err
 	}
 
 	conditionTruthy, tErr := i.isTruthy(condition)
 	if tErr != nil {
+		fmt.Printf("while 2  err: %v %T\n", err, err)
 		return nil, tErr
 	}
 
@@ -157,10 +170,12 @@ func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) (any, error) {
 		condition, err = i.evaluate(stmt.Condition)
 
 		if err != nil {
+			fmt.Printf("while 3  err: %v %T\n", err, err)
 			return nil, err
 		}
 		conditionTruthy, tErr = i.isTruthy(condition)
 		if tErr != nil {
+			fmt.Printf("while 4  err: %v %T\n", err, err)
 			return nil, tErr
 		}
 	}
@@ -172,21 +187,25 @@ func (i *Interpreter) VisitIfStmt(stmt parser.IfStmt) (any, error) {
 	condition, err := i.evaluate(stmt.Condition)
 
 	if err != nil {
+		fmt.Printf("if 1  err: %v %T\n", err, err)
 		return nil, err
 	}
 	conditionTruthy, tErr := i.isTruthy(condition)
 	if tErr != nil {
+		fmt.Printf("if 2  err: %v %T\n", err, err)
 		return nil, tErr
 	}
 
 	if conditionTruthy {
 		_, err = stmt.ThenBranch.Accept(i)
 		if err != nil {
+			fmt.Printf("if 3  err: %v %T\n", err, err)
 			return nil, err
 		}
 	} else if stmt.ElseBranch != nil {
 		_, err = stmt.ElseBranch.Accept(i)
 		if err != nil {
+			fmt.Printf("if 4  err: %v %T\n", err, err)
 			return nil, err
 		}
 	}
@@ -199,6 +218,7 @@ func (i *Interpreter) VisitBlockStmt(stmt parser.Block) (any, error) {
 	err := i.executeBlock(stmt.Statements, runtime.NewEnvironment(i.environment))
 
 	if err != nil {
+		fmt.Printf("block  1  err: %v %T\n", err, err)
 		return nil, err
 	}
 	return nil, nil
@@ -213,6 +233,7 @@ func (i *Interpreter) VisitPrintStmt(stmt parser.PrintStmt) (any, error) {
 	//fmt.Println("visit print")
 	val, err := i.evaluate(stmt.Expression)
 	if err != nil {
+		fmt.Printf("print  1  err: %v %T\n", err, err)
 		return nil, err
 	}
 	//fmt.Printf("visit print val %v\n", val)
@@ -225,13 +246,19 @@ func (i *Interpreter) VisitAssignExpr(expr parser.Assign) (any, error) {
 	val, err := i.evaluate(expr.Expr)
 
 	if err != nil {
+		fmt.Printf("assgin 1  err: %v %T\n", err, err)
 		return nil, err
 	}
 
-	//fmt.Printf("visit assinge expr %s %v\n", expr.Lexem, val)
-	tErr := i.environment.Assign(expr.Lexem, val)
-	if tErr != nil {
-		return nil, tErr
+	if dist, ok := i.locals[expr]; ok {
+		i.environment.AssignAt(dist, expr.Lexem, val)
+	} else {
+		//fmt.Printf("visit assinge expr %s %v\n", expr.Lexem, val)
+		tErr := i.globals.Assign(expr.Lexem, val)
+		if tErr != nil {
+			fmt.Printf("assgin 2  err: %v %T\n", err, err)
+			return nil, tErr
+		}
 	}
 
 	return val, nil
@@ -239,24 +266,20 @@ func (i *Interpreter) VisitAssignExpr(expr parser.Assign) (any, error) {
 
 func (i *Interpreter) VisitVariableExpr(expr parser.Variable) (any, error) {
 	//fmt.Println("visit var expr")
-	val, err := i.environment.Get(expr.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	//fmt.Printf("visit var expr %s %v\n", expr.Name.Lexeme, val)
-	return val, nil
+	return i.lookUpVariable(expr.Name, expr)
 }
 
 func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 	//fmt.Println("visit binary expr")
 	leftVal, err := i.evaluate(expr.Left)
 	if err != nil {
+		fmt.Printf("bi 1  err: %v %T\n", err, err)
 		return nil, err
 	}
 
 	rightVal, err := i.evaluate(expr.Right)
 	if err != nil {
+		fmt.Printf("bi 2  err: %v %T\n", err, err)
 		return nil, err
 	}
 
@@ -266,6 +289,7 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
+				fmt.Printf("bi 3  err: %v %T\n", err, err)
 				return nil, err
 			}
 
@@ -276,6 +300,7 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
+				fmt.Printf("bi 4  err: %v %T\n", err, err)
 				return nil, err
 			}
 
@@ -285,6 +310,7 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
+				fmt.Printf("bi 5  err: %v %T\n", err, err)
 				return nil, err
 			}
 
@@ -317,11 +343,13 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 	//fmt.Println("visit logicla expr")
 	leftVal, err := i.evaluate(expr.Left)
 	if err != nil {
+		fmt.Printf("log 1  err: %v %T\n", err, err)
 		return nil, err
 	}
 
 	rightVal, err := i.evaluate(expr.Right)
 	if err != nil {
+		fmt.Printf("log 2  err: %v %T\n", err, err)
 		return nil, err
 	}
 
@@ -331,6 +359,7 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
+				fmt.Printf("log 3  err: %v %T\n", err, err)
 				return nil, err
 			}
 
@@ -341,6 +370,7 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
+				fmt.Printf("log 4  err: %v %T\n", err, err)
 				return nil, err
 			}
 
@@ -351,6 +381,7 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
+				fmt.Printf("log 5  err: %v %T\n", err, err)
 				return nil, err
 			}
 
@@ -360,6 +391,7 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
+				fmt.Printf("log 6  err: %v %T\n", err, err)
 				return nil, err
 			}
 
@@ -428,6 +460,7 @@ func (i *Interpreter) executeBlock(stmts []parser.Stmt, enviroment *runtime.Envi
 	for _, stmt_ := range stmts {
 		_, err := stmt_.Accept(i)
 		if err != nil {
+			fmt.Printf("execute block  err: %v %T\n", err, err)
 			i.environment = prev
 			return err
 		}
@@ -442,6 +475,7 @@ func (i *Interpreter) VisitUnaryExpr(expr parser.Unary) (any, error) {
 	rigthVal, err := i.evaluate(expr.Right)
 
 	if err != nil {
+		fmt.Printf("unary 1  err: %v %T\n", err, err)
 		return nil, err
 	}
 
@@ -450,6 +484,7 @@ func (i *Interpreter) VisitUnaryExpr(expr parser.Unary) (any, error) {
 		{
 			rigthNum, err := i.checkNumberOperand(expr.Operator, rigthVal)
 			if err != nil {
+				fmt.Printf("unary 2  err: %v %T\n", err, err)
 				return nil, err
 			}
 			return -rigthNum, nil
@@ -459,6 +494,7 @@ func (i *Interpreter) VisitUnaryExpr(expr parser.Unary) (any, error) {
 		{
 			rigthTruthy, err := i.isTruthy(rigthVal)
 			if err != nil {
+				fmt.Printf("unary 3  err: %v %T\n", err, err)
 				return nil, err
 			}
 			return !rigthTruthy, nil
@@ -467,6 +503,26 @@ func (i *Interpreter) VisitUnaryExpr(expr parser.Unary) (any, error) {
 		{
 			return nil, runtime.NewRuntimeError("Expect unary operator to be -, !")
 		}
+	}
+}
+
+func (i *Interpreter) lookUpVariable(name scanner.Token, expr parser.Expr) (any, error) {
+	if dist, ok := i.locals[expr]; ok {
+		val, err := i.environment.GetAt(dist, name.Lexeme)
+		if err != nil {
+			fmt.Printf("unary 3  err: %v %T\n", err, err)
+			return nil, err
+		}
+
+		return val, nil
+	} else {
+		val, err := i.globals.Get(name)
+		if err != nil {
+			fmt.Printf("unary 3  err: %v %T\n", err, err)
+			return nil, err
+		}
+
+		return val, nil
 	}
 }
 

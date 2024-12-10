@@ -7,6 +7,7 @@ import (
 
 	"github.com/neet-007/glox/pkg/interpreter"
 	"github.com/neet-007/glox/pkg/parser"
+	"github.com/neet-007/glox/pkg/resolver"
 	"github.com/neet-007/glox/pkg/scanner"
 )
 
@@ -98,6 +99,14 @@ func (l *Lox) run(source []byte) {
 	}
 
 	interpreter_ := interpreter.NewInterpreter()
+	resolver_ := resolver.NewResolver(interpreter_)
+
+	resolver_.ResolveStms(statements)
+
+	if l.hadError {
+		return
+	}
+
 	err := interpreter_.Interpret(statements)
 	if err != nil {
 		fmt.Println("here")
