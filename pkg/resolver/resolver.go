@@ -1,6 +1,8 @@
 package resolver
 
 import (
+	"fmt"
+
 	"github.com/neet-007/glox/pkg/interpreter"
 	"github.com/neet-007/glox/pkg/parser"
 	"github.com/neet-007/glox/pkg/scanner"
@@ -19,6 +21,7 @@ const (
 const (
 	NONE_CLASS ClassType = iota
 	CLASS
+	SUBCLASS
 )
 
 type Resolver struct {
@@ -104,6 +107,21 @@ func (r *Resolver) endScope() {
 	r.scopes = r.scopes[:len(r.scopes)-1]
 }
 
+func (r *Resolver) VisitSuperExpr(expr parser.Super) (any, error) {
+	if r.currentClass == NONE_CLASS {
+		fmt.Println("failed none")
+		//!TODO error with Can't use 'super' outside of a class
+		return nil, nil
+	} else if r.currentClass != SUBCLASS {
+		fmt.Println("failed subcall")
+		//!TODO error Can't use 'super' in a class with no superclass.
+		return nil, nil
+	}
+
+	r.resolveLocal(expr, expr.Keyword)
+	return nil, nil
+}
+
 func (r *Resolver) VisitThisExpr(expr parser.This) (any, error) {
 	if r.currentClass == NONE_CLASS {
 		//!TODO error
@@ -178,14 +196,29 @@ func (r *Resolver) VisitUnaryExpr(expr parser.Unary) (any, error) {
 }
 
 func (r *Resolver) VisitClassStmt(stmt parser.Class) (any, error) {
+	currentClass := r.currentClass
+	r.currentClass = CLASS
 	r.define(stmt.Name)
 	r.declare(stmt.Name)
+
+	var zeroVariabe parser.Variable
+	if stmt.SuperClass != zeroVariabe {
+		r.currentClass = SUBCLASS
+		if stmt.SuperClass.Name == stmt.Name {
+			//!TODO error with A class can't inherit from itself.
+			return nil, nil
+		}
+		r.resolveExpr(stmt.SuperClass)
+	}
+
+	if stmt.SuperClass != zeroVariabe {
+		r.beginScope()
+		r.scopes[len(r.scopes)-1]["super"] = true
+	}
 
 	r.beginScope()
 	r.scopes[len(r.scopes)-1]["this"] = true
 
-	currentClass := r.currentClass
-	r.currentClass = CLASS
 	for _, method := range stmt.Methods {
 		declaation := METHOD
 		if method.Name.Lexeme == "init" {
@@ -194,8 +227,14 @@ func (r *Resolver) VisitClassStmt(stmt parser.Class) (any, error) {
 		r.resolveFunction(method, declaation)
 	}
 
-	r.currentClass = currentClass
 	r.endScope()
+
+	if stmt.SuperClass != zeroVariabe {
+		r.currentClass = currentClass
+		r.endScope()
+	}
+
+	r.currentClass = currentClass
 	return nil, nil
 }
 

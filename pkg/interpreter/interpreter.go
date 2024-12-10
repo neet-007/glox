@@ -72,7 +72,27 @@ func (i *Interpreter) evaluate(expr parser.Expr) (any, error) {
 }
 
 func (i *Interpreter) VisitClassStmt(stmt parser.Class) (any, error) {
+	var superClass Class
+	var zeroVariabe parser.Variable
+	if stmt.SuperClass != zeroVariabe {
+		superClassVal, err := i.evaluate(stmt.SuperClass)
+		if err != nil {
+			return nil, err
+		}
+
+		superClassClass, ok := superClassVal.(Class)
+		if !ok {
+			return nil, runtime.NewRuntimeError("Superclass must be a class")
+		}
+
+		superClass = superClassClass
+	}
 	i.environment.Define(stmt.Name.Lexeme, nil)
+
+	if stmt.SuperClass != zeroVariabe {
+		i.environment = runtime.NewEnvironment(i.environment)
+		i.environment.Define("super", superClass)
+	}
 
 	methods := map[string]LoxFunction{}
 
@@ -81,8 +101,14 @@ func (i *Interpreter) VisitClassStmt(stmt parser.Class) (any, error) {
 		methods[method.Name.Lexeme] = methodFunction
 	}
 
-	class := NewLoxClass(stmt.Name.Lexeme, methods)
+	class := NewLoxClass(stmt.Name.Lexeme, methods, &superClass)
+
+	if stmt.SuperClass != zeroVariabe {
+		i.environment = i.environment.Enclosing
+	}
+
 	i.environment.Assign(stmt.Name, class)
+
 	return nil, nil
 }
 
@@ -293,6 +319,41 @@ func (i *Interpreter) VisitPrintStmt(stmt parser.PrintStmt) (any, error) {
 	//fmt.Printf("visit print val %v\n", val)
 	fmt.Printf("%v\n", val)
 	return nil, nil
+}
+
+func (i *Interpreter) VisitSuperExpr(expr parser.Super) (any, error) {
+	dist, ok := i.locals[expr]
+	if !ok {
+		return nil, runtime.NewRuntimeError("superclass not found")
+	}
+
+	class, err := i.environment.GetAt(dist, "super")
+	if err != nil {
+		return nil, err
+	}
+
+	classClass, ok := class.(Class)
+	if !ok {
+		return nil, runtime.NewRuntimeError("superclass not found")
+	}
+
+	instance, err := i.environment.GetAt(dist-1, "this")
+	if err != nil {
+		return nil, err
+	}
+
+	instanceInstance, ok := instance.(Instance)
+	if !ok {
+		return nil, runtime.NewRuntimeError("instance not found")
+	}
+
+	method, ok := classClass.FindMethod(expr.Method.Lexeme)
+	if !ok {
+		return nil, runtime.NewRuntimeError("method not found")
+	}
+
+	return method.Bind(instanceInstance), nil
+
 }
 
 func (i *Interpreter) VisitAssignExpr(expr parser.Assign) (any, error) {

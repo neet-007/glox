@@ -24,14 +24,16 @@ type Stmt interface {
 }
 
 type Class struct {
-	Name    scanner.Token
-	Methods []Function
+	Name       scanner.Token
+	Methods    []Function
+	SuperClass Variable
 }
 
-func NewClass(name scanner.Token, methods []Function) Class {
+func NewClass(name scanner.Token, methods []Function, superClass Variable) Class {
 	return Class{
-		Name:    name,
-		Methods: methods,
+		Name:       name,
+		Methods:    methods,
+		SuperClass: superClass,
 	}
 }
 

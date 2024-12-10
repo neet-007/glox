@@ -48,12 +48,9 @@ func (a *AstPrinter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 	return a.parenthesize(expr.Operator.Lexeme, expr.Left, expr.Right), nil
 }
 
-/*
-	func (a *AstPrinter) VisitSuperExpr(expr Super) (any, error) {
-		return fmt.Sprintf("(super %v)", expr.Method.Lexeme)
-	}
-
-*/
+func (a *AstPrinter) VisitSuperExpr(expr parser.Super) (any, error) {
+	return fmt.Sprintf("(super %v)", expr.Method.Lexeme), nil
+}
 
 func (a *AstPrinter) VisitThisExpr(expr parser.This) (any, error) {
 	return "this", nil

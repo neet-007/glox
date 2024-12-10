@@ -1,14 +1,16 @@
 package interpreter
 
 type Class struct {
-	methods map[string]LoxFunction
-	Name    string
+	methods    map[string]LoxFunction
+	Name       string
+	SuperClass *Class
 }
 
-func NewLoxClass(name string, methods map[string]LoxFunction) Class {
+func NewLoxClass(name string, methods map[string]LoxFunction, class *Class) Class {
 	return Class{
-		Name:    name,
-		methods: methods,
+		Name:       name,
+		methods:    methods,
+		SuperClass: class,
 	}
 }
 
@@ -33,6 +35,9 @@ func (c Class) Arity() int {
 
 func (c Class) FindMethod(name string) (LoxFunction, bool) {
 	method, ok := c.methods[name]
+	if !ok && c.SuperClass != nil {
+		return c.SuperClass.FindMethod(name)
+	}
 	return method, ok
 }
 

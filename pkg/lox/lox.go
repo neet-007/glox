@@ -109,7 +109,6 @@ func (l *Lox) run(source []byte) {
 
 	err := interpreter_.Interpret(statements)
 	if err != nil {
-		fmt.Println("here")
 		fmt.Printf("err %v\n", err)
 	}
 

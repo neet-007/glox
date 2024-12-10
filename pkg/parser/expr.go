@@ -5,6 +5,7 @@ import (
 )
 
 type VisitExpr interface {
+	VisitSuperExpr(expr Super) (any, error)
 	VisitThisExpr(expr This) (any, error)
 	VisitSetExpr(expr Set) (any, error)
 	VisitGetExpr(expr Get) (any, error)
@@ -20,6 +21,22 @@ type VisitExpr interface {
 
 type Expr interface {
 	Accept(visitor VisitExpr) (any, error)
+}
+
+type Super struct {
+	Keyword scanner.Token
+	Method  scanner.Token
+}
+
+func NewSuper(keyword scanner.Token, method scanner.Token) Super {
+	return Super{
+		Keyword: keyword,
+		Method:  method,
+	}
+}
+
+func (s Super) Accept(visitor VisitExpr) (any, error) {
+	return visitor.VisitSuperExpr(s)
 }
 
 type This struct {

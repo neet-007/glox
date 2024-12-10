@@ -74,6 +74,16 @@ func (p *Parser) class() (Stmt, *ParseError) {
 		return nil, parseErr
 	}
 
+	var superClass Variable
+	if p.match(scanner.LESS) {
+		_, parseErr = p.consume(scanner.IDENTIFIER, "Expect identeifer for super class")
+		if parseErr != nil {
+			return nil, parseErr
+		}
+
+		superClass = NewVariable(p.previous())
+	}
+
 	_, parseErr = p.consume(scanner.LEFT_BRACE, "Expect '{' after class")
 	if parseErr != nil {
 		return nil, parseErr
@@ -93,7 +103,7 @@ func (p *Parser) class() (Stmt, *ParseError) {
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	return NewClass(name, methods), nil
+	return NewClass(name, methods, superClass), nil
 }
 
 func (p *Parser) function(kind string) (Function, *ParseError) {
@@ -607,6 +617,21 @@ func (p *Parser) primary() (Expr, *ParseError) {
 	}
 	if p.match(scanner.NUMBER, scanner.STRING) {
 		return NewLiteral(p.previous().Literal), nil
+	}
+	if p.match(scanner.SUPER) {
+		super := p.previous()
+		_, parseErr := p.consume(scanner.DOT, "Expect '.' for super call")
+		if parseErr != nil {
+			return nil, parseErr
+		}
+
+		method, parseErr := p.consume(scanner.IDENTIFIER, "Expect '.' for super call")
+		if parseErr != nil {
+			return nil, parseErr
+		}
+
+		return NewSuper(super, method), nil
+
 	}
 	if p.match(scanner.LEFT_PAREN) {
 		expr, parseErr := p.expression()
