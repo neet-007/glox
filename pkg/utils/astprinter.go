@@ -25,11 +25,13 @@ func (a *AstPrinter) VisitCallExpr(expr parser.Call) (any, error) {
 	return a.parenthesize("call", append([]parser.Expr{expr.Callee}, expr.Arguments...)...), nil
 }
 
-/*
-func (a *AstPrinter) VisitGetExpr(expr Get) (any, error) {
-	return a.parenthesize(fmt.Sprintf("get %v", expr.Name.Lexeme), expr.Object)
+func (a *AstPrinter) VisitGetExpr(expr parser.Get) (any, error) {
+	return a.parenthesize(fmt.Sprintf("get %v", expr.Name.Lexeme), expr.Object), nil
 }
-*/
+
+func (a *AstPrinter) VisitSetExpr(expr parser.Set) (any, error) {
+	return a.parenthesize(fmt.Sprintf("set %v", expr.Name.Lexeme), expr.Object, expr.Value), nil
+}
 
 func (a *AstPrinter) VisitGroupingExpr(expr parser.Grouping) (any, error) {
 	return a.parenthesize("group", expr.Expr), nil
@@ -47,18 +49,16 @@ func (a *AstPrinter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 }
 
 /*
-	func (a *AstPrinter) VisitSetExpr(expr Set) (any, error) {
-		return a.parenthesize(fmt.Sprintf("set %v", expr.Name.Lexeme), expr.Object, expr.Value)
-	}
-
 	func (a *AstPrinter) VisitSuperExpr(expr Super) (any, error) {
 		return fmt.Sprintf("(super %v)", expr.Method.Lexeme)
 	}
 
-	func (a *AstPrinter) VisitThisExpr(expr This) (any, error) {
-		return "this"
-	}
 */
+
+func (a *AstPrinter) VisitThisExpr(expr parser.This) (any, error) {
+	return "this", nil
+}
+
 func (a *AstPrinter) VisitUnaryExpr(expr parser.Unary) (any, error) {
 	return a.parenthesize(expr.Operator.Lexeme, expr.Right), nil
 }
@@ -120,17 +120,15 @@ func (a *AstPrinter) VisitReturnStmt(stmt parser.Return) (any, error) {
 	return "(return)", nil
 }
 
-/*
-	func (a *AstPrinter) VisitClassStmt(stmt Class) (any, error) {
-		superclass := stmt.Superclass
-		var methods []string
-		for _, method := range stmt.Methods {
-			methods = append(methods, a.print(method))
-		}
-		return fmt.Sprintf("(class %s superclass [%s] %s)", stmt.Name.Lexeme, a.VisitVariableExpr(superclass), strings.Join(methods, " "))
+func (a *AstPrinter) VisitClassStmt(stmt parser.Class) (any, error) {
+	//superclass := stmt.Superclass
+	var methods []string
+	for _, method := range stmt.Methods {
+		methods = append(methods, a.print(method))
 	}
-
-*/
+	//a.VisitVariableExpr(superclass)
+	return fmt.Sprintf("(class %s superclass [%s] %s)", stmt.Name.Lexeme, strings.Join(methods, " ")), nil
+}
 
 func (a *AstPrinter) Print(stmts []parser.Stmt) {
 	for _, stmt := range stmts {

@@ -5,6 +5,9 @@ import (
 )
 
 type VisitExpr interface {
+	VisitThisExpr(expr This) (any, error)
+	VisitSetExpr(expr Set) (any, error)
+	VisitGetExpr(expr Get) (any, error)
 	VisitCallExpr(expr Call) (any, error)
 	VisitVariableExpr(expr Variable) (any, error)
 	VisitAssignExpr(expr Assign) (any, error)
@@ -17,6 +20,54 @@ type VisitExpr interface {
 
 type Expr interface {
 	Accept(visitor VisitExpr) (any, error)
+}
+
+type This struct {
+	Keyword scanner.Token
+}
+
+func NewThis(keyword scanner.Token) This {
+	return This{
+		Keyword: keyword,
+	}
+}
+
+func (t This) Accept(visitor VisitExpr) (any, error) {
+	return visitor.VisitThisExpr(t)
+}
+
+type Set struct {
+	Value  Expr
+	Object Expr
+	Name   scanner.Token
+}
+
+func NewSet(value Expr, object Expr, name scanner.Token) Set {
+	return Set{
+		Value:  value,
+		Object: object,
+		Name:   name,
+	}
+}
+
+func (s Set) Accept(visitor VisitExpr) (any, error) {
+	return visitor.VisitSetExpr(s)
+}
+
+type Get struct {
+	Object Expr
+	Name   scanner.Token
+}
+
+func NewGet(object Expr, name scanner.Token) Get {
+	return Get{
+		Object: object,
+		Name:   name,
+	}
+}
+
+func (g Get) Accept(visitor VisitExpr) (any, error) {
+	return visitor.VisitGetExpr(g)
 }
 
 type Call struct {

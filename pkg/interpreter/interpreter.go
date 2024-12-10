@@ -71,6 +71,21 @@ func (i *Interpreter) evaluate(expr parser.Expr) (any, error) {
 	return expr.Accept(i)
 }
 
+func (i *Interpreter) VisitClassStmt(stmt parser.Class) (any, error) {
+	i.environment.Define(stmt.Name.Lexeme, nil)
+
+	methods := map[string]LoxFunction{}
+
+	for _, method := range stmt.Methods {
+		methodFunction := NewLoxFunction(method, i.environment, method.Name.Lexeme == "init")
+		methods[method.Name.Lexeme] = methodFunction
+	}
+
+	class := NewLoxClass(stmt.Name.Lexeme, methods)
+	i.environment.Assign(stmt.Name, class)
+	return nil, nil
+}
+
 func (i *Interpreter) VisitReturnStmt(stmt parser.Return) (any, error) {
 	//fmt.Println("visit return")
 	var val any = nil
@@ -85,6 +100,45 @@ func (i *Interpreter) VisitReturnStmt(stmt parser.Return) (any, error) {
 
 	//fmt.Printf("visit return val %v\n", val)
 	return nil, runtime.NewReturn(val)
+}
+
+func (i *Interpreter) VisitThisExpr(expr parser.This) (any, error) {
+	return i.lookUpVariable(expr.Keyword, expr)
+}
+
+func (i *Interpreter) VisitSetExpr(expr parser.Set) (any, error) {
+	object, err := i.evaluate(expr.Object)
+	if err != nil {
+		return nil, err
+	}
+
+	objectInstance, ok := object.(Instance)
+	if !ok {
+		return nil, runtime.NewRuntimeError("Only instances have properties")
+	}
+
+	value, err := i.evaluate(expr.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	objectInstance.Set(expr.Name, value)
+
+	return value, nil
+}
+
+func (i *Interpreter) VisitGetExpr(expr parser.Get) (any, error) {
+	object, err := i.evaluate(expr.Object)
+	if err != nil {
+		fmt.Printf("get err %v %T\n", err, err)
+		return nil, err
+	}
+
+	if objectInstance, ok := object.(Instance); ok {
+		return objectInstance.Get(expr.Name)
+	}
+
+	return nil, runtime.NewRuntimeError("Only instances have properties")
 }
 
 func (i *Interpreter) VisitCallExpr(expr parser.Call) (any, error) {
@@ -128,7 +182,7 @@ func (i *Interpreter) VisitCallExpr(expr parser.Call) (any, error) {
 
 func (i *Interpreter) VisitFunctionStmt(stmt parser.Function) (any, error) {
 	//fmt.Println("visit function stmt")
-	function := NewLoxFunction(stmt, i.environment)
+	function := NewLoxFunction(stmt, i.environment, false)
 	i.environment.Define(stmt.Name.Lexeme, function)
 
 	return nil, nil
@@ -510,7 +564,7 @@ func (i *Interpreter) lookUpVariable(name scanner.Token, expr parser.Expr) (any,
 	if dist, ok := i.locals[expr]; ok {
 		val, err := i.environment.GetAt(dist, name.Lexeme)
 		if err != nil {
-			fmt.Printf("unary 3  err: %v %T\n", err, err)
+			fmt.Printf("look up  err: %v %T\n", err, err)
 			return nil, err
 		}
 
@@ -518,7 +572,7 @@ func (i *Interpreter) lookUpVariable(name scanner.Token, expr parser.Expr) (any,
 	} else {
 		val, err := i.globals.Get(name)
 		if err != nil {
-			fmt.Printf("unary 3  err: %v %T\n", err, err)
+			fmt.Printf("look up2  err: %v %T\n", err, err)
 			return nil, err
 		}
 

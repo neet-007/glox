@@ -52,6 +52,9 @@ func (p *Parser) Parse() ([]Stmt, []*ParseError) {
 }
 
 func (p *Parser) declaration() (Stmt, *ParseError) {
+	if p.match(scanner.CLASS) {
+		return p.class()
+	}
 	if p.match(scanner.FUN) {
 		return p.function("function")
 	}
@@ -65,15 +68,43 @@ func (p *Parser) declaration() (Stmt, *ParseError) {
 	return p.statement()
 }
 
-func (p *Parser) function(kind string) (Stmt, *ParseError) {
-	name, parseErr := p.consume(scanner.IDENTIFIER, "Expect function "+kind+" name")
+func (p *Parser) class() (Stmt, *ParseError) {
+	name, parseErr := p.consume(scanner.IDENTIFIER, "Expect identeifer for class")
 	if parseErr != nil {
 		return nil, parseErr
 	}
 
-	_, parseErr = p.consume(scanner.LEFT_PAREN, "Expect '(' for function")
+	_, parseErr = p.consume(scanner.LEFT_BRACE, "Expect '{' after class")
 	if parseErr != nil {
 		return nil, parseErr
+	}
+
+	methods := []Function{}
+	for !p.isAtEnd() && !p.check(scanner.RIGHT_BRACE) {
+		method, parseErr := p.function("method")
+		if parseErr != nil {
+			return nil, parseErr
+		}
+
+		methods = append(methods, method)
+	}
+
+	_, parseErr = p.consume(scanner.RIGHT_BRACE, "Expect ']' after class")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	return NewClass(name, methods), nil
+}
+
+func (p *Parser) function(kind string) (Function, *ParseError) {
+	name, parseErr := p.consume(scanner.IDENTIFIER, "Expect function "+kind+" name")
+	if parseErr != nil {
+		return Function{}, parseErr
+	}
+
+	_, parseErr = p.consume(scanner.LEFT_PAREN, "Expect '(' for function")
+	if parseErr != nil {
+		return Function{}, parseErr
 	}
 
 	parameters := []scanner.Token{}
@@ -81,7 +112,7 @@ func (p *Parser) function(kind string) (Stmt, *ParseError) {
 	if !p.check(scanner.RIGHT_PAREN) {
 		_, parseErr = p.consume(scanner.IDENTIFIER, "Expect identefier for parameter")
 		if parseErr != nil {
-			return nil, parseErr
+			return Function{}, parseErr
 		}
 
 		parameters = append(parameters, p.previous())
@@ -91,7 +122,7 @@ func (p *Parser) function(kind string) (Stmt, *ParseError) {
 			}
 			_, parseErr = p.consume(scanner.IDENTIFIER, "Expect identefier for parameter")
 			if parseErr != nil {
-				return nil, parseErr
+				return Function{}, parseErr
 			}
 			parameters = append(parameters, p.previous())
 		}
@@ -99,21 +130,21 @@ func (p *Parser) function(kind string) (Stmt, *ParseError) {
 
 	_, parseErr = p.consume(scanner.RIGHT_PAREN, "Expect ')' for function")
 	if parseErr != nil {
-		return nil, parseErr
+		return Function{}, parseErr
 	}
 
 	_, parseErr = p.consume(scanner.LEFT_BRACE, "Expect '{' for block")
 	if parseErr != nil {
-		return nil, parseErr
+		return Function{}, parseErr
 	}
 
 	body, parseErr := p.block()
 	if parseErr != nil {
-		return nil, parseErr
+		return Function{}, parseErr
 	}
 
 	if paramSizeErr != nil {
-		return nil, paramSizeErr
+		return Function{}, paramSizeErr
 	}
 
 	return NewFunction(name, parameters, body), nil
@@ -364,15 +395,12 @@ func (p *Parser) assignment() (Expr, *ParseError) {
 
 		if exprVal, ok := expr.(Variable); ok {
 			return NewAssign(exprVal.Name, val), nil
+		} else if exprGet, ok := expr.(Get); ok {
+			return NewSet(val, exprGet.Object, exprGet.Name), nil
 		}
 
-		_, err = p.consume(scanner.SEMICOLON, "Expect ';' after expression")
-		if err != nil {
-			return nil, err
-		}
 		return nil, newParseError(equal, "assigenmnt to invalid value")
 	}
-
 	return expr, nil
 }
 
@@ -507,20 +535,26 @@ func (p *Parser) unary() (Expr, *ParseError) {
 }
 
 func (p *Parser) call() (Expr, *ParseError) {
-	name, parseErr := p.primary()
+	expr, parseErr := p.primary()
 	if parseErr != nil {
 		return nil, parseErr
 	}
 
 	for {
 		if p.match(scanner.LEFT_PAREN) {
-			name, parseErr = p.finishCall(name)
+			expr, parseErr = p.finishCall(expr)
+		} else if p.match(scanner.DOT) {
+			name, parseErr := p.consume(scanner.IDENTIFIER, "Expect idetnitfier for prop")
+			if parseErr != nil {
+				return nil, parseErr
+			}
+			expr = NewGet(expr, name)
 		} else {
 			break
 		}
 	}
 
-	return name, nil
+	return expr, nil
 }
 
 func (p *Parser) finishCall(expr Expr) (Expr, *ParseError) {
@@ -588,6 +622,11 @@ func (p *Parser) primary() (Expr, *ParseError) {
 
 		return NewGrouping(expr), nil
 	}
+
+	if p.match(scanner.THIS) {
+		return NewThis(p.previous()), nil
+	}
+
 	if p.match(scanner.IDENTIFIER) {
 		return NewVariable(p.previous()), nil
 	}

@@ -8,6 +8,7 @@ import (
 )
 
 type VisitStmt interface {
+	VisitClassStmt(stmt Class) (any, error)
 	VisitReturnStmt(stmt Return) (any, error)
 	VisitFunctionStmt(stmt Function) (any, error)
 	VisitVarDeclaration(stmt VarDeclaration) (any, error)
@@ -20,6 +21,26 @@ type VisitStmt interface {
 
 type Stmt interface {
 	Accept(visitor VisitStmt) (any, error)
+}
+
+type Class struct {
+	Name    scanner.Token
+	Methods []Function
+}
+
+func NewClass(name scanner.Token, methods []Function) Class {
+	return Class{
+		Name:    name,
+		Methods: methods,
+	}
+}
+
+func (c Class) String() string {
+	return fmt.Sprintf("class name: %v\nmethods: %v\n\n", c.Name, c.Methods)
+}
+
+func (c Class) Accept(visitor VisitStmt) (any, error) {
+	return visitor.VisitClassStmt(c)
 }
 
 type Return struct {

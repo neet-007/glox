@@ -7,23 +7,33 @@ import (
 )
 
 type FunctionType int
+type ClassType int
 
 const (
-	NONE = iota
+	NONE_FUNCTION FunctionType = iota
 	FUNCTION
+	INITIALIZER
+	METHOD
+)
+
+const (
+	NONE_CLASS ClassType = iota
+	CLASS
 )
 
 type Resolver struct {
 	interpreter     *interpreter.Interpreter
 	scopes          []map[string]bool
 	currentFunction FunctionType
+	currentClass    ClassType
 }
 
 func NewResolver(interpreter *interpreter.Interpreter) *Resolver {
 	return &Resolver{
 		interpreter:     interpreter,
 		scopes:          []map[string]bool{},
-		currentFunction: NONE,
+		currentFunction: NONE_FUNCTION,
+		currentClass:    NONE_CLASS,
 	}
 }
 
@@ -94,6 +104,26 @@ func (r *Resolver) endScope() {
 	r.scopes = r.scopes[:len(r.scopes)-1]
 }
 
+func (r *Resolver) VisitThisExpr(expr parser.This) (any, error) {
+	if r.currentClass == NONE_CLASS {
+		//!TODO error
+		return nil, nil
+	}
+	r.resolveLocal(expr, expr.Keyword)
+	return nil, nil
+}
+
+func (r *Resolver) VisitSetExpr(expr parser.Set) (any, error) {
+	r.resolveExpr(expr.Value)
+	r.resolveExpr(expr.Object)
+	return nil, nil
+}
+
+func (r *Resolver) VisitGetExpr(expr parser.Get) (any, error) {
+	r.resolveExpr(expr.Object)
+	return nil, nil
+}
+
 func (r *Resolver) VisitCallExpr(expr parser.Call) (any, error) {
 	r.resolveExpr(expr.Callee)
 
@@ -104,9 +134,11 @@ func (r *Resolver) VisitCallExpr(expr parser.Call) (any, error) {
 }
 
 func (r *Resolver) VisitVariableExpr(expr parser.Variable) (any, error) {
-	if len(r.scopes) > 0 && !r.scopes[len(r.scopes)-1][expr.Name.Lexeme] {
-		//!TODO error with Can't read local variable in its own initializer.
-		return nil, nil
+	if len(r.scopes) > 0 {
+		if val, ok := r.scopes[len(r.scopes)-1][expr.Name.Lexeme]; ok && !val {
+			//!TODO error with Can't read local variable in its own initializer.
+			return nil, nil
+		}
 	}
 
 	r.resolveLocal(expr, expr.Name)
@@ -114,7 +146,7 @@ func (r *Resolver) VisitVariableExpr(expr parser.Variable) (any, error) {
 }
 
 func (r *Resolver) VisitAssignExpr(expr parser.Assign) (any, error) {
-	r.resolveExpr(expr)
+	r.resolveExpr(expr.Expr)
 	r.resolveLocal(expr, expr.Lexem)
 	return nil, nil
 }
@@ -145,12 +177,38 @@ func (r *Resolver) VisitUnaryExpr(expr parser.Unary) (any, error) {
 	return nil, nil
 }
 
+func (r *Resolver) VisitClassStmt(stmt parser.Class) (any, error) {
+	r.define(stmt.Name)
+	r.declare(stmt.Name)
+
+	r.beginScope()
+	r.scopes[len(r.scopes)-1]["this"] = true
+
+	currentClass := r.currentClass
+	r.currentClass = CLASS
+	for _, method := range stmt.Methods {
+		declaation := METHOD
+		if method.Name.Lexeme == "init" {
+			declaation = INITIALIZER
+		}
+		r.resolveFunction(method, declaation)
+	}
+
+	r.currentClass = currentClass
+	r.endScope()
+	return nil, nil
+}
+
 func (r *Resolver) VisitReturnStmt(stmt parser.Return) (any, error) {
-	if r.currentFunction == NONE {
+	if r.currentFunction == NONE_FUNCTION {
 		//!TODO error with Can't return from top-level code.
 		return nil, nil
 	}
 	if stmt.Value != nil {
+		if r.currentFunction == INITIALIZER {
+			//!TODO error with Can't return from top-level code.
+			return nil, nil
+		}
 		r.resolveExpr(stmt.Value)
 	}
 	return nil, nil
