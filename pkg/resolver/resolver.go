@@ -1,8 +1,6 @@
 package resolver
 
 import (
-	"fmt"
-
 	"github.com/neet-007/glox/pkg/interpreter"
 	"github.com/neet-007/glox/pkg/parser"
 	"github.com/neet-007/glox/pkg/scanner"
@@ -24,9 +22,26 @@ const (
 	SUBCLASS
 )
 
+type CompileError struct {
+	Token   scanner.Token
+	Message string
+}
+
+func (e *CompileError) Error() string {
+	return e.Message
+}
+
+func NewCompileError(token scanner.Token, message string) *CompileError {
+	return &CompileError{
+		Token:   token,
+		Message: message,
+	}
+}
+
 type Resolver struct {
 	interpreter     *interpreter.Interpreter
 	scopes          []map[string]bool
+	errors          []*CompileError
 	currentFunction FunctionType
 	currentClass    ClassType
 }
@@ -35,23 +50,32 @@ func NewResolver(interpreter *interpreter.Interpreter) *Resolver {
 	return &Resolver{
 		interpreter:     interpreter,
 		scopes:          []map[string]bool{},
+		errors:          []*CompileError{},
 		currentFunction: NONE_FUNCTION,
 		currentClass:    NONE_CLASS,
 	}
 }
 
-func (r *Resolver) ResolveStms(stmts []parser.Stmt) {
+func (r *Resolver) Resolve(stmts []parser.Stmt) []*CompileError {
+	for _, stmt := range stmts {
+		r.resolveStmt(stmt)
+	}
+
+	return r.errors
+}
+
+func (r *Resolver) resolveStmts(stmts []parser.Stmt) {
 	for _, stmt := range stmts {
 		r.resolveStmt(stmt)
 	}
 }
 
-func (r *Resolver) resolveStmt(stmt parser.Stmt) {
-	stmt.Accept(r)
+func (r *Resolver) resolveStmt(stmt parser.Stmt) (any, error) {
+	return stmt.Accept(r)
 }
 
-func (r *Resolver) resolveExpr(expr parser.Expr) {
-	expr.Accept(r)
+func (r *Resolver) resolveExpr(expr parser.Expr) (any, error) {
+	return expr.Accept(r)
 }
 
 func (r *Resolver) resolveLocal(expr parser.Expr, name scanner.Token) {
@@ -73,7 +97,7 @@ func (r *Resolver) resolveFunction(stmt parser.Function, functionType FunctionTy
 		r.define(param)
 	}
 
-	r.ResolveStms(stmt.Body)
+	r.resolveStmts(stmt.Body)
 	r.endScope()
 	r.currentFunction = enclosingFunction
 }
@@ -85,10 +109,11 @@ func (r *Resolver) declare(name scanner.Token) {
 
 	scope := r.scopes[len(r.scopes)-1]
 	if _, ok := scope[name.Lexeme]; ok {
-		//!TODO error wtih Already a variable with this name in this scope.
+		r.error(NewCompileError(name, "Already a variable with this name in this scope"))
 		return
 	}
 	scope[name.Lexeme] = false
+	return
 }
 
 func (r *Resolver) define(name scanner.Token) {
@@ -107,14 +132,22 @@ func (r *Resolver) endScope() {
 	r.scopes = r.scopes[:len(r.scopes)-1]
 }
 
+func (r *Resolver) error(errros ...error) {
+	for _, err := range errros {
+		if compileErr, ok := err.(*CompileError); ok {
+			r.errors = append(r.errors, compileErr)
+		} else {
+			panic("not compile error" + err.Error())
+		}
+	}
+}
+
 func (r *Resolver) VisitSuperExpr(expr parser.Super) (any, error) {
 	if r.currentClass == NONE_CLASS {
-		fmt.Println("failed none")
-		//!TODO error with Can't use 'super' outside of a class
+		r.error(NewCompileError(expr.Keyword, "Can't use 'super' outside of a class"))
 		return nil, nil
 	} else if r.currentClass != SUBCLASS {
-		fmt.Println("failed subcall")
-		//!TODO error Can't use 'super' in a class with no superclass.
+		r.error(NewCompileError(expr.Keyword, "Can't use 'super' in a class with no superclass"))
 		return nil, nil
 	}
 
@@ -124,7 +157,7 @@ func (r *Resolver) VisitSuperExpr(expr parser.Super) (any, error) {
 
 func (r *Resolver) VisitThisExpr(expr parser.This) (any, error) {
 	if r.currentClass == NONE_CLASS {
-		//!TODO error
+		r.error(NewCompileError(expr.Keyword, "Can't use 'this' outside of a class"))
 		return nil, nil
 	}
 	r.resolveLocal(expr, expr.Keyword)
@@ -134,6 +167,7 @@ func (r *Resolver) VisitThisExpr(expr parser.This) (any, error) {
 func (r *Resolver) VisitSetExpr(expr parser.Set) (any, error) {
 	r.resolveExpr(expr.Value)
 	r.resolveExpr(expr.Object)
+
 	return nil, nil
 }
 
@@ -154,7 +188,7 @@ func (r *Resolver) VisitCallExpr(expr parser.Call) (any, error) {
 func (r *Resolver) VisitVariableExpr(expr parser.Variable) (any, error) {
 	if len(r.scopes) > 0 {
 		if val, ok := r.scopes[len(r.scopes)-1][expr.Name.Lexeme]; ok && !val {
-			//!TODO error with Can't read local variable in its own initializer.
+			r.error(NewCompileError(expr.Name, "Can't read local variable in its own initializer"))
 			return nil, nil
 		}
 	}
@@ -166,17 +200,20 @@ func (r *Resolver) VisitVariableExpr(expr parser.Variable) (any, error) {
 func (r *Resolver) VisitAssignExpr(expr parser.Assign) (any, error) {
 	r.resolveExpr(expr.Expr)
 	r.resolveLocal(expr, expr.Lexem)
+
 	return nil, nil
 }
 
 func (r *Resolver) VisitBinaryExpr(expr parser.Binary) (any, error) {
 	r.resolveExpr(expr.Left)
 	r.resolveExpr(expr.Right)
+
 	return nil, nil
 }
 
 func (r *Resolver) VisitGroupingExpr(expr parser.Grouping) (any, error) {
 	r.resolveExpr(expr.Expr)
+
 	return nil, nil
 }
 
@@ -187,11 +224,13 @@ func (r *Resolver) VisitLiteralExpr(expr parser.Literal) (any, error) {
 func (r *Resolver) VisitLogicalExpr(expr parser.Logical) (any, error) {
 	r.resolveExpr(expr.Left)
 	r.resolveExpr(expr.Right)
+
 	return nil, nil
 }
 
 func (r *Resolver) VisitUnaryExpr(expr parser.Unary) (any, error) {
 	r.resolveExpr(expr.Right)
+
 	return nil, nil
 }
 
@@ -205,7 +244,7 @@ func (r *Resolver) VisitClassStmt(stmt parser.Class) (any, error) {
 	if stmt.SuperClass != zeroVariabe {
 		r.currentClass = SUBCLASS
 		if stmt.SuperClass.Name == stmt.Name {
-			//!TODO error with A class can't inherit from itself.
+			r.error(NewCompileError(stmt.Name, "A class can't inherit from itself."))
 			return nil, nil
 		}
 		r.resolveExpr(stmt.SuperClass)
@@ -240,12 +279,12 @@ func (r *Resolver) VisitClassStmt(stmt parser.Class) (any, error) {
 
 func (r *Resolver) VisitReturnStmt(stmt parser.Return) (any, error) {
 	if r.currentFunction == NONE_FUNCTION {
-		//!TODO error with Can't return from top-level code.
+		r.error(NewCompileError(stmt.Keyword, "Can't return from top-level code."))
 		return nil, nil
 	}
 	if stmt.Value != nil {
 		if r.currentFunction == INITIALIZER {
-			//!TODO error with Can't return from top-level code.
+			r.error(NewCompileError(stmt.Keyword, "Can't return a value from an initializer."))
 			return nil, nil
 		}
 		r.resolveExpr(stmt.Value)
@@ -277,7 +316,7 @@ func (r *Resolver) VisitWhileStmt(stmt parser.WhileStmt) (any, error) {
 
 func (r *Resolver) VisitBlockStmt(stmt parser.Block) (any, error) {
 	r.beginScope()
-	r.ResolveStms(stmt.Statements)
+	r.resolveStmts(stmt.Statements)
 	r.endScope()
 	return nil, nil
 }

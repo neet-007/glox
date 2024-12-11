@@ -101,7 +101,10 @@ func (l *Lox) run(source []byte) {
 	interpreter_ := interpreter.NewInterpreter()
 	resolver_ := resolver.NewResolver(interpreter_)
 
-	resolver_.ResolveStms(statements)
+	compileErros := resolver_.Resolve(statements)
+	for _, err := range compileErros {
+		l.error(err.Token, err.Message)
+	}
 
 	if l.hadError {
 		return
