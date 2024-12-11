@@ -304,7 +304,11 @@ func (i *Interpreter) VisitPrintStmt(stmt parser.PrintStmt) (any, error) {
 		return nil, err
 	}
 	//fmt.Printf("visit print val %v\n", val)
-	fmt.Printf("%v\n", val)
+	if val == nil {
+		fmt.Println("nil")
+	} else {
+		fmt.Printf("%v\n", val)
+	}
 	return nil, nil
 }
 

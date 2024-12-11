@@ -237,8 +237,8 @@ func (r *Resolver) VisitUnaryExpr(expr parser.Unary) (any, error) {
 func (r *Resolver) VisitClassStmt(stmt parser.Class) (any, error) {
 	currentClass := r.currentClass
 	r.currentClass = CLASS
-	r.define(stmt.Name)
 	r.declare(stmt.Name)
+	r.define(stmt.Name)
 
 	var zeroVariabe parser.Variable
 	if stmt.SuperClass != zeroVariabe {

@@ -295,10 +295,16 @@ func (s *Scanner) isAtEnd() bool {
 }
 
 func (s *Scanner) peekAhead() byte {
+	if s.current+1 >= s.length {
+		return 0
+	}
 	return s.source[s.current+1]
 }
 
 func (s *Scanner) peek() byte {
+	if s.current >= s.length {
+		return 0
+	}
 	return s.source[s.current]
 }
 
