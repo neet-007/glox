@@ -112,9 +112,8 @@ func (l *Lox) run(source []byte) {
 
 	err := interpreter_.Interpret(statements)
 	if err != nil {
-		fmt.Printf("err %v\n", err)
+		l.error(err.Token, err.Message)
 	}
-
 }
 
 func (l *Lox) error(token scanner.Token, message string) {

@@ -22,7 +22,7 @@ func (e *Environment) Get(name scanner.Token) (any, *RuntimeError) {
 		if e.Enclosing != nil {
 			return e.Enclosing.Get(name)
 		}
-		return nil, NewRuntimeError("undefiend variable " + name.Lexeme)
+		return nil, NewRuntimeError(name, "undefiend variable "+name.Lexeme)
 	}
 
 	return val, nil
@@ -52,7 +52,7 @@ func (e *Environment) Assign(name scanner.Token, value any) *RuntimeError {
 		return e.Enclosing.Assign(name, value)
 	}
 
-	return NewRuntimeError("undefiend variable " + name.Lexeme)
+	return NewRuntimeError(name, "undefiend variable "+name.Lexeme)
 }
 
 func (e *Environment) AssignAt(dist int, name scanner.Token, value any) {

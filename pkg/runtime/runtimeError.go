@@ -1,18 +1,23 @@
 package runtime
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/neet-007/glox/pkg/scanner"
+)
 
 type RuntimeError struct {
+	Token   scanner.Token
 	Message string
 }
 
-func NewRuntimeError(message string) *RuntimeError {
-	fmt.Printf("Creating RuntimeError with message: %s\n", message)
+func NewRuntimeError(token scanner.Token, message string) *RuntimeError {
 	return &RuntimeError{
+		Token:   token,
 		Message: message,
 	}
 }
 
 func (r *RuntimeError) Error() string {
-	return fmt.Sprintf("%v\n", r.Message)
+	return fmt.Sprintf("%v %v\n", r.Token, r.Message)
 }

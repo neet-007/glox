@@ -27,7 +27,7 @@ func (i Instance) Get(name scanner.Token) (any, error) {
 		return method.Bind(i), nil
 	}
 
-	return nil, runtime.NewRuntimeError("Undefined property '" + name.Lexeme)
+	return nil, runtime.NewRuntimeError(name, "Undefined property '"+name.Lexeme)
 }
 
 func (i Instance) Set(name scanner.Token, value any) (any, error) {

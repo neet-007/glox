@@ -82,7 +82,7 @@ func (i *Interpreter) VisitClassStmt(stmt parser.Class) (any, error) {
 
 		superClassClass, ok := superClassVal.(Class)
 		if !ok {
-			return nil, runtime.NewRuntimeError("Superclass must be a class")
+			return nil, runtime.NewRuntimeError(stmt.Name, "Superclass must be a class")
 		}
 
 		superClass = superClassClass
@@ -140,7 +140,7 @@ func (i *Interpreter) VisitSetExpr(expr parser.Set) (any, error) {
 
 	objectInstance, ok := object.(Instance)
 	if !ok {
-		return nil, runtime.NewRuntimeError("Only instances have properties")
+		return nil, runtime.NewRuntimeError(expr.Name, "Only instances have properties")
 	}
 
 	value, err := i.evaluate(expr.Value)
@@ -164,7 +164,7 @@ func (i *Interpreter) VisitGetExpr(expr parser.Get) (any, error) {
 		return objectInstance.Get(expr.Name)
 	}
 
-	return nil, runtime.NewRuntimeError("Only instances have properties")
+	return nil, runtime.NewRuntimeError(expr.Name, "Only instances have properties")
 }
 
 func (i *Interpreter) VisitCallExpr(expr parser.Call) (any, error) {
@@ -189,11 +189,11 @@ func (i *Interpreter) VisitCallExpr(expr parser.Call) (any, error) {
 
 	callable, ok := callee.(Callable)
 	if !ok {
-		return nil, runtime.NewRuntimeError("not callable")
+		return nil, runtime.NewRuntimeError(expr.Paren, "not callable")
 	}
 
 	if len(arguments) != callable.Arity() {
-		return nil, runtime.NewRuntimeError(fmt.Sprintf("expect %d parameters got %d arguments", len(arguments), callable.Arity()))
+		return nil, runtime.NewRuntimeError(expr.Paren, fmt.Sprintf("expect %d parameters got %d arguments", len(arguments), callable.Arity()))
 	}
 
 	callVal, tErr := callable.Call(i, arguments)
@@ -239,11 +239,7 @@ func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) (any, error) {
 		return nil, err
 	}
 
-	conditionTruthy, tErr := i.isTruthy(condition)
-	if tErr != nil {
-		fmt.Printf("while 2  err: %v %T\n", err, err)
-		return nil, tErr
-	}
+	conditionTruthy := i.isTruthy(condition)
 
 	for conditionTruthy {
 		stmt.Body.Accept(i)
@@ -253,11 +249,7 @@ func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) (any, error) {
 			fmt.Printf("while 3  err: %v %T\n", err, err)
 			return nil, err
 		}
-		conditionTruthy, tErr = i.isTruthy(condition)
-		if tErr != nil {
-			fmt.Printf("while 4  err: %v %T\n", err, err)
-			return nil, tErr
-		}
+		conditionTruthy = i.isTruthy(condition)
 	}
 	return nil, nil
 }
@@ -270,11 +262,7 @@ func (i *Interpreter) VisitIfStmt(stmt parser.IfStmt) (any, error) {
 		fmt.Printf("if 1  err: %v %T\n", err, err)
 		return nil, err
 	}
-	conditionTruthy, tErr := i.isTruthy(condition)
-	if tErr != nil {
-		fmt.Printf("if 2  err: %v %T\n", err, err)
-		return nil, tErr
-	}
+	conditionTruthy := i.isTruthy(condition)
 
 	if conditionTruthy {
 		_, err = stmt.ThenBranch.Accept(i)
@@ -324,7 +312,7 @@ func (i *Interpreter) VisitPrintStmt(stmt parser.PrintStmt) (any, error) {
 func (i *Interpreter) VisitSuperExpr(expr parser.Super) (any, error) {
 	dist, ok := i.locals[expr]
 	if !ok {
-		return nil, runtime.NewRuntimeError("superclass not found")
+		return nil, runtime.NewRuntimeError(expr.Keyword, "superclass not found")
 	}
 
 	class, err := i.environment.GetAt(dist, "super")
@@ -334,7 +322,7 @@ func (i *Interpreter) VisitSuperExpr(expr parser.Super) (any, error) {
 
 	classClass, ok := class.(Class)
 	if !ok {
-		return nil, runtime.NewRuntimeError("superclass not found")
+		return nil, runtime.NewRuntimeError(expr.Keyword, "superclass not found")
 	}
 
 	instance, err := i.environment.GetAt(dist-1, "this")
@@ -344,12 +332,12 @@ func (i *Interpreter) VisitSuperExpr(expr parser.Super) (any, error) {
 
 	instanceInstance, ok := instance.(Instance)
 	if !ok {
-		return nil, runtime.NewRuntimeError("instance not found")
+		return nil, runtime.NewRuntimeError(expr.Keyword, "instance not found")
 	}
 
 	method, ok := classClass.FindMethod(expr.Method.Lexeme)
 	if !ok {
-		return nil, runtime.NewRuntimeError("method not found")
+		return nil, runtime.NewRuntimeError(expr.Method, "method not found")
 	}
 
 	return method.Bind(instanceInstance), nil
@@ -445,11 +433,11 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 				}
 			}
 
-			return nil, runtime.NewRuntimeError("Expect binary operands to be strings")
+			return nil, runtime.NewRuntimeError(expr.Operator, "Expect binary operands to be strings")
 		}
 	default:
 		{
-			return nil, runtime.NewRuntimeError("Excpect binray operator to be -, +, *, /")
+			return nil, runtime.NewRuntimeError(expr.Operator, "Excpect binray operator to be -, +, *, /")
 		}
 	}
 }
@@ -529,7 +517,7 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 				}
 			}
 
-			return nil, runtime.NewRuntimeError("Expect binary operands to be strings")
+			return nil, runtime.NewRuntimeError(expr.Operator, "Expect binary operands to be strings")
 		}
 	case scanner.BANG_EQUAL:
 		{
@@ -548,11 +536,11 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 				}
 			}
 
-			return nil, runtime.NewRuntimeError("Expect binary operands to be strings")
+			return nil, runtime.NewRuntimeError(expr.Operator, "Expect binary operands to be strings")
 		}
 	default:
 		{
-			return nil, runtime.NewRuntimeError("Excpect logical operator to be >, >=. <, <=, !=, ==")
+			return nil, runtime.NewRuntimeError(expr.Operator, "Excpect logical operator to be >, >=. <, <=, !=, ==")
 		}
 	}
 }
@@ -607,16 +595,12 @@ func (i *Interpreter) VisitUnaryExpr(expr parser.Unary) (any, error) {
 		}
 	case scanner.BANG:
 		{
-			rigthTruthy, err := i.isTruthy(rigthVal)
-			if err != nil {
-				fmt.Printf("unary 3  err: %v %T\n", err, err)
-				return nil, err
-			}
+			rigthTruthy := i.isTruthy(rigthVal)
 			return !rigthTruthy, nil
 		}
 	default:
 		{
-			return nil, runtime.NewRuntimeError("Expect unary operator to be -, !")
+			return nil, runtime.NewRuntimeError(expr.Operator, "Expect unary operator to be -, !")
 		}
 	}
 }
@@ -641,18 +625,15 @@ func (i *Interpreter) lookUpVariable(name scanner.Token, expr parser.Expr) (any,
 	}
 }
 
-func (i *Interpreter) isTruthy(value any) (bool, *runtime.RuntimeError) {
-	if strVal, ok := value.(string); ok {
-		return strVal != "", nil
-	}
-	if numVal, ok := value.(float64); ok {
-		return numVal != 0, nil
+func (i *Interpreter) isTruthy(value any) bool {
+	if value == nil {
+		return false
 	}
 	if boolVal, ok := value.(bool); ok {
-		return boolVal, nil
+		return boolVal
 	}
 
-	return false, runtime.NewRuntimeError("Unexpected value")
+	return true
 }
 
 func (i *Interpreter) checkNumberOperand(operator scanner.Token, operand any) (float64, *runtime.RuntimeError) {
@@ -660,7 +641,7 @@ func (i *Interpreter) checkNumberOperand(operator scanner.Token, operand any) (f
 		return val, nil
 	}
 
-	return 0, runtime.NewRuntimeError("Expect operands to be numbers")
+	return 0, runtime.NewRuntimeError(operator, "Expect operands to be numbers")
 }
 
 func (i *Interpreter) checkNumberOperands(operator scanner.Token, operandLeft any, operandRight any) (float64, float64, *runtime.RuntimeError) {
@@ -670,5 +651,5 @@ func (i *Interpreter) checkNumberOperands(operator scanner.Token, operandLeft an
 		}
 	}
 
-	return 0, 0, runtime.NewRuntimeError("Expect operands to be numbers")
+	return 0, 0, runtime.NewRuntimeError(operator, "Expect operands to be numbers")
 }
