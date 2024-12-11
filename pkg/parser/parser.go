@@ -468,7 +468,7 @@ func (p *Parser) equality() (Expr, *ParseError) {
 			return nil, parseErr
 		}
 
-		return NewLogical(left, right, operator), nil
+		return NewBinary(left, right, operator), nil
 	}
 
 	return left, nil
@@ -480,14 +480,14 @@ func (p *Parser) comparison() (Expr, *ParseError) {
 		return nil, parseErr
 	}
 
-	if p.match(scanner.GREATER, scanner.GREATER, scanner.LESS, scanner.LESS_EQUAL) {
+	if p.match(scanner.GREATER, scanner.GREATER_EQUAL, scanner.LESS, scanner.LESS_EQUAL) {
 		operator := p.previous()
 		right, parseErr := p.comparison()
 		if parseErr != nil {
 			return nil, parseErr
 		}
 
-		return NewLogical(left, right, operator), nil
+		return NewBinary(left, right, operator), nil
 	}
 
 	return left, nil

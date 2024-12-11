@@ -280,7 +280,7 @@ func (s *Scanner) isNumber(c byte) bool {
 }
 
 func (s *Scanner) isAlphaNumerical(c byte) bool {
-	return s.isNumber(c) || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')
+	return s.isNumber(c) || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_'
 }
 
 func (s *Scanner) advance() byte {

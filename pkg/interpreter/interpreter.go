@@ -434,29 +434,6 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 
 			return nil, runtime.NewRuntimeError(expr.Operator, "Expect binary operands to be strings")
 		}
-	default:
-		{
-			return nil, runtime.NewRuntimeError(expr.Operator, "Excpect binray operator to be -, +, *, /")
-		}
-	}
-}
-
-func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
-	//fmt.Println("visit logicla expr")
-	leftVal, err := i.evaluate(expr.Left)
-	if err != nil {
-		fmt.Printf("log 1  err: %v %T\n", err, err)
-		return nil, err
-	}
-
-	rightVal, err := i.evaluate(expr.Right)
-	if err != nil {
-		fmt.Printf("log 2  err: %v %T\n", err, err)
-		return nil, err
-	}
-
-	//fmt.Printf("visit logical expr %v %v\n", leftVal, rightVal)
-	switch expr.Operator.TokenType {
 	case scanner.GREATER:
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
@@ -469,7 +446,6 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 		}
 	case scanner.GREATER_EQUAL:
 		{
-
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
 				fmt.Printf("log 4  err: %v %T\n", err, err)
@@ -480,7 +456,6 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 		}
 	case scanner.LESS:
 		{
-
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
 				fmt.Printf("log 5  err: %v %T\n", err, err)
@@ -501,47 +476,59 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 		}
 	case scanner.EQUAL_EQUAL:
 		{
-			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
-			if err == nil {
-				if expr.Operator.TokenType == scanner.EQUAL_EQUAL {
-					return left == right, nil
-				} else {
-					return left != right, nil
-				}
+			if leftVal == nil && rightVal == nil {
+				return true, nil
+			}
+			if leftVal == nil {
+				return false, nil
 			}
 
-			if strLeft, ok := leftVal.(string); ok {
-				if strRight, ok := rightVal.(string); ok {
-					return strLeft == strRight, nil
-				}
-			}
-
-			return nil, runtime.NewRuntimeError(expr.Operator, "Expect binary operands to be strings")
+			return leftVal == rightVal, nil
 		}
 	case scanner.BANG_EQUAL:
 		{
-			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
-			if err == nil {
-				if expr.Operator.TokenType == scanner.EQUAL_EQUAL {
-					return left == right, nil
-				} else {
-					return left != right, nil
-				}
+			if leftVal == nil && rightVal == nil {
+				return false, nil
+			}
+			if leftVal == nil {
+				return true, nil
 			}
 
-			if strLeft, ok := leftVal.(string); ok {
-				if strRight, ok := rightVal.(string); ok {
-					return strLeft != strRight, nil
-				}
-			}
-
-			return nil, runtime.NewRuntimeError(expr.Operator, "Expect binary operands to be strings")
+			return leftVal != rightVal, nil
 		}
 	default:
 		{
-			return nil, runtime.NewRuntimeError(expr.Operator, "Excpect logical operator to be >, >=. <, <=, !=, ==")
+			return nil, runtime.NewRuntimeError(expr.Operator, "Excpect binray operator to be -, +, *, /")
 		}
 	}
+}
+
+func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
+	//fmt.Println("visit logicla expr")
+	leftVal, err := i.evaluate(expr.Left)
+	if err != nil {
+		fmt.Printf("log 1  err: %v %T\n", err, err)
+		return nil, err
+	}
+
+	//fmt.Printf("visit logical expr %v %v\n", leftVal, rightVal)
+	if expr.Operator.TokenType == scanner.OR {
+		if i.isTruthy(leftVal) {
+			return leftVal, nil
+		}
+	} else {
+		if !i.isTruthy(leftVal) {
+			return leftVal, nil
+		}
+	}
+
+	rightVal, err := i.evaluate(expr.Right)
+	if err != nil {
+		fmt.Printf("log 2  err: %v %T\n", err, err)
+		return nil, err
+	}
+
+	return rightVal, nil
 }
 
 func (i *Interpreter) VisitGroupingExpr(expr parser.Grouping) (any, error) {
