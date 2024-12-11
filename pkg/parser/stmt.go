@@ -3,9 +3,18 @@ package parser
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/neet-007/glox/pkg/scanner"
 )
+
+/*
+ NOTE:
+	the timestamp field on the structs is to produce a unique hash for
+	each new struct becouse when used in the map for interpeter you need
+	to find the right one and dont overwrite
+:
+*/
 
 type VisitStmt interface {
 	VisitClassStmt(stmt Class) (any, error)
@@ -27,6 +36,7 @@ type Class struct {
 	Name       scanner.Token
 	Methods    []Function
 	SuperClass Variable
+	timestamp  int64 // Unique field
 }
 
 func NewClass(name scanner.Token, methods []Function, superClass Variable) Class {
@@ -34,6 +44,7 @@ func NewClass(name scanner.Token, methods []Function, superClass Variable) Class
 		Name:       name,
 		Methods:    methods,
 		SuperClass: superClass,
+		timestamp:  time.Now().UnixNano(),
 	}
 }
 
@@ -46,14 +57,16 @@ func (c Class) Accept(visitor VisitStmt) (any, error) {
 }
 
 type Return struct {
-	Keyword scanner.Token
-	Value   Expr
+	Keyword   scanner.Token
+	Value     Expr
+	timestamp int64 // Unique field
 }
 
 func NewReturn(keyword scanner.Token, value Expr) Return {
 	return Return{
-		Keyword: keyword,
-		Value:   value,
+		Keyword:   keyword,
+		Value:     value,
+		timestamp: time.Now().UnixNano(),
 	}
 }
 
@@ -69,6 +82,7 @@ type Function struct {
 	Name       scanner.Token
 	Parameters []scanner.Token
 	Body       []Stmt
+	timestamp  int64 // Unique field
 }
 
 func NewFunction(name scanner.Token, parameters []scanner.Token, body []Stmt) Function {
@@ -76,6 +90,7 @@ func NewFunction(name scanner.Token, parameters []scanner.Token, body []Stmt) Fu
 		Name:       name,
 		Parameters: parameters,
 		Body:       body,
+		timestamp:  time.Now().UnixNano(),
 	}
 }
 
@@ -90,6 +105,7 @@ func (f Function) Accept(visitor VisitStmt) (any, error) {
 type VarDeclaration struct {
 	Initizlier Expr
 	Name       scanner.Token
+	timestamp  int64 // Unique field
 }
 
 func (v VarDeclaration) String() string {
@@ -100,6 +116,7 @@ func NewVarDeclaration(name scanner.Token, initizlier Expr) VarDeclaration {
 	return VarDeclaration{
 		Name:       name,
 		Initizlier: initizlier,
+		timestamp:  time.Now().UnixNano(),
 	}
 }
 
@@ -110,6 +127,7 @@ func (v VarDeclaration) Accept(visitor VisitStmt) (any, error) {
 type WhileStmt struct {
 	Condition Expr
 	Body      Stmt
+	timestamp int64 // Unique field
 }
 
 func (w WhileStmt) String() string {
@@ -120,6 +138,7 @@ func NewWhileStmt(condition Expr, block Stmt) WhileStmt {
 	return WhileStmt{
 		Condition: condition,
 		Body:      block,
+		timestamp: time.Now().UnixNano(),
 	}
 }
 
@@ -129,6 +148,7 @@ func (w WhileStmt) Accept(visitor VisitStmt) (any, error) {
 
 type Block struct {
 	Statements []Stmt
+	timestamp  int64 // Unique field
 }
 
 func (b Block) String() string {
@@ -144,6 +164,7 @@ func (b Block) String() string {
 func NewBlock(statements []Stmt) Block {
 	return Block{
 		Statements: statements,
+		timestamp:  time.Now().UnixNano(),
 	}
 }
 
@@ -155,6 +176,7 @@ type IfStmt struct {
 	Condition  Expr
 	ThenBranch Stmt
 	ElseBranch Stmt
+	timestamp  int64 // Unique field
 }
 
 func (i IfStmt) String() string {
@@ -162,7 +184,12 @@ func (i IfStmt) String() string {
 }
 
 func NewIfStmt(condition Expr, thenBranch Stmt, elseBranch Stmt) IfStmt {
-	return IfStmt{condition, thenBranch, elseBranch}
+	return IfStmt{
+		Condition:  condition,
+		ThenBranch: thenBranch,
+		ElseBranch: elseBranch,
+		timestamp:  time.Now().UnixNano(),
+	}
 }
 
 func (i IfStmt) Accept(visitor VisitStmt) (any, error) {
@@ -171,6 +198,7 @@ func (i IfStmt) Accept(visitor VisitStmt) (any, error) {
 
 type ExpressionStmt struct {
 	Expression Expr
+	timestamp  int64 // Unique field
 }
 
 func (e ExpressionStmt) String() string {
@@ -180,6 +208,7 @@ func (e ExpressionStmt) String() string {
 func NewExpressionStmt(expr Expr) ExpressionStmt {
 	return ExpressionStmt{
 		Expression: expr,
+		timestamp:  time.Now().UnixNano(),
 	}
 }
 
@@ -189,6 +218,7 @@ func (e ExpressionStmt) Accept(visitor VisitStmt) (any, error) {
 
 type PrintStmt struct {
 	Expression Expr
+	timestamp  int64 // Unique field
 }
 
 func (p PrintStmt) String() string {
@@ -198,6 +228,7 @@ func (p PrintStmt) String() string {
 func NewPrintStmt(expr Expr) PrintStmt {
 	return PrintStmt{
 		Expression: expr,
+		timestamp:  time.Now().UnixNano(),
 	}
 }
 

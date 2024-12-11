@@ -1,8 +1,18 @@
 package parser
 
 import (
+	"time"
+
 	"github.com/neet-007/glox/pkg/scanner"
 )
+
+/*
+ NOTE:
+	the timestamp field on the structs is to produce a unique hash for
+	each new struct becouse when used in the map for interpeter you need
+	to find the right one and dont overwrite
+:
+*/
 
 type VisitExpr interface {
 	VisitSuperExpr(expr Super) (any, error)
@@ -24,14 +34,16 @@ type Expr interface {
 }
 
 type Super struct {
-	Keyword scanner.Token
-	Method  scanner.Token
+	Keyword   scanner.Token
+	Method    scanner.Token
+	timestamp int64 // Unique field
 }
 
 func NewSuper(keyword scanner.Token, method scanner.Token) Super {
 	return Super{
-		Keyword: keyword,
-		Method:  method,
+		Keyword:   keyword,
+		Method:    method,
+		timestamp: time.Now().UnixNano(),
 	}
 }
 
@@ -40,12 +52,14 @@ func (s Super) Accept(visitor VisitExpr) (any, error) {
 }
 
 type This struct {
-	Keyword scanner.Token
+	Keyword   scanner.Token
+	timestamp int64 // Unique field
 }
 
 func NewThis(keyword scanner.Token) This {
 	return This{
-		Keyword: keyword,
+		Keyword:   keyword,
+		timestamp: time.Now().UnixNano(),
 	}
 }
 
@@ -54,16 +68,18 @@ func (t This) Accept(visitor VisitExpr) (any, error) {
 }
 
 type Set struct {
-	Value  Expr
-	Object Expr
-	Name   scanner.Token
+	Value     Expr
+	Object    Expr
+	Name      scanner.Token
+	timestamp int64 // Unique field
 }
 
 func NewSet(value Expr, object Expr, name scanner.Token) Set {
 	return Set{
-		Value:  value,
-		Object: object,
-		Name:   name,
+		Value:     value,
+		Object:    object,
+		Name:      name,
+		timestamp: time.Now().UnixNano(),
 	}
 }
 
@@ -72,14 +88,16 @@ func (s Set) Accept(visitor VisitExpr) (any, error) {
 }
 
 type Get struct {
-	Object Expr
-	Name   scanner.Token
+	Object    Expr
+	Name      scanner.Token
+	timestamp int64 // Unique field
 }
 
 func NewGet(object Expr, name scanner.Token) Get {
 	return Get{
-		Object: object,
-		Name:   name,
+		Object:    object,
+		Name:      name,
+		timestamp: time.Now().UnixNano(),
 	}
 }
 
@@ -91,6 +109,7 @@ type Call struct {
 	Callee    Expr
 	Paren     scanner.Token
 	Arguments []Expr
+	timestamp int64 // Unique field
 }
 
 func NewCall(callee Expr, paren scanner.Token, arguments []Expr) Call {
@@ -98,6 +117,7 @@ func NewCall(callee Expr, paren scanner.Token, arguments []Expr) Call {
 		Callee:    callee,
 		Paren:     paren,
 		Arguments: arguments,
+		timestamp: time.Now().UnixNano(),
 	}
 }
 
@@ -106,12 +126,14 @@ func (c Call) Accept(visitor VisitExpr) (any, error) {
 }
 
 type Variable struct {
-	Name scanner.Token
+	Name      scanner.Token
+	timestamp int64 // Unique field
 }
 
 func NewVariable(name scanner.Token) Variable {
 	return Variable{
-		Name: name,
+		Name:      name,
+		timestamp: time.Now().UnixNano(),
 	}
 }
 
@@ -120,14 +142,16 @@ func (v Variable) Accept(visitor VisitExpr) (any, error) {
 }
 
 type Assign struct {
-	Lexem scanner.Token
-	Expr  Expr
+	Lexem     scanner.Token
+	Expr      Expr
+	timestamp int64 // Unique field
 }
 
 func NewAssign(lexem scanner.Token, expr Expr) Assign {
 	return Assign{
-		Lexem: lexem,
-		Expr:  expr,
+		Lexem:     lexem,
+		Expr:      expr,
+		timestamp: time.Now().UnixNano(),
 	}
 }
 
@@ -136,16 +160,18 @@ func (a Assign) Accept(visitor VisitExpr) (any, error) {
 }
 
 type Binary struct {
-	Left     Expr
-	Right    Expr
-	Operator scanner.Token
+	Left      Expr
+	Right     Expr
+	Operator  scanner.Token
+	timestamp int64 // Unique field
 }
 
 func NewBinary(left Expr, right Expr, operator scanner.Token) Binary {
 	return Binary{
-		Left:     left,
-		Right:    right,
-		Operator: operator,
+		Left:      left,
+		Right:     right,
+		Operator:  operator,
+		timestamp: time.Now().UnixNano(),
 	}
 }
 
@@ -154,12 +180,14 @@ func (b Binary) Accept(visitor VisitExpr) (any, error) {
 }
 
 type Grouping struct {
-	Expr Expr
+	Expr      Expr
+	timestamp int64 // Unique field
 }
 
 func NewGrouping(expr Expr) Grouping {
 	return Grouping{
-		Expr: expr,
+		Expr:      expr,
+		timestamp: time.Now().UnixNano(),
 	}
 }
 
@@ -168,12 +196,14 @@ func (g Grouping) Accept(visitor VisitExpr) (any, error) {
 }
 
 type Literal struct {
-	Value any
+	Value     any
+	timestamp int64 // Unique field
 }
 
 func NewLiteral(value any) Literal {
 	return Literal{
-		Value: value,
+		Value:     value,
+		timestamp: time.Now().UnixNano(),
 	}
 }
 
@@ -182,16 +212,18 @@ func (l Literal) Accept(visitor VisitExpr) (any, error) {
 }
 
 type Logical struct {
-	Left     Expr
-	Right    Expr
-	Operator scanner.Token
+	Left      Expr
+	Right     Expr
+	Operator  scanner.Token
+	timestamp int64 // Unique field
 }
 
 func NewLogical(left Expr, right Expr, operator scanner.Token) Logical {
 	return Logical{
-		Left:     left,
-		Right:    right,
-		Operator: operator,
+		Left:      left,
+		Right:     right,
+		Operator:  operator,
+		timestamp: time.Now().UnixNano(),
 	}
 }
 
@@ -200,14 +232,16 @@ func (l Logical) Accept(visitor VisitExpr) (any, error) {
 }
 
 type Unary struct {
-	Right    Expr
-	Operator scanner.Token
+	Right     Expr
+	Operator  scanner.Token
+	timestamp int64 // Unique field
 }
 
 func NewUnary(right Expr, operator scanner.Token) Unary {
 	return Unary{
-		Right:    right,
-		Operator: operator,
+		Right:     right,
+		Operator:  operator,
+		timestamp: time.Now().UnixNano(),
 	}
 }
 

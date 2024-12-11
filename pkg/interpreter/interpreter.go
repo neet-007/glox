@@ -282,7 +282,6 @@ func (i *Interpreter) VisitIfStmt(stmt parser.IfStmt) (any, error) {
 }
 
 func (i *Interpreter) VisitBlockStmt(stmt parser.Block) (any, error) {
-	//fmt.Println("visit block")
 	err := i.executeBlock(stmt.Statements, runtime.NewEnvironment(i.environment))
 
 	if err != nil {

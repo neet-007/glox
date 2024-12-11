@@ -24,6 +24,7 @@ func (p *ParseError) Error() string {
 
 type Parser struct {
 	tokens  []scanner.Token
+	errors  []*ParseError
 	current int
 	length  int
 }
@@ -31,24 +32,24 @@ type Parser struct {
 func NewParser(tokens []scanner.Token) *Parser {
 	return &Parser{
 		tokens: tokens,
+		errors: []*ParseError{},
 		length: len(tokens),
 	}
 }
 
 func (p *Parser) Parse() ([]Stmt, []*ParseError) {
 	expressions := []Stmt{}
-	errors := []*ParseError{}
 
 	for !p.isAtEnd() {
 		statement, parseErr := p.declaration()
 		if parseErr != nil {
-			errors = append(errors, parseErr)
+			p.errors = append(p.errors, parseErr)
 			p.synchronize()
 		}
 		expressions = append(expressions, statement)
 	}
 
-	return expressions, errors
+	return expressions, p.errors
 }
 
 func (p *Parser) declaration() (Stmt, *ParseError) {
@@ -57,9 +58,6 @@ func (p *Parser) declaration() (Stmt, *ParseError) {
 	}
 	if p.match(scanner.FUN) {
 		return p.function("function")
-	}
-	if p.match(scanner.FOR) {
-		return p.forStatement()
 	}
 	if p.match(scanner.VAR) {
 		return p.varDeclaration()
@@ -257,6 +255,9 @@ func (p *Parser) statement() (Stmt, *ParseError) {
 			return nil, parseErr
 		}
 		return NewPrintStmt(expr), nil
+	}
+	if p.match(scanner.FOR) {
+		return p.forStatement()
 	}
 	if p.match(scanner.WHILE) {
 		return p.whileStatement()
