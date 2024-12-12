@@ -13,6 +13,7 @@ type Interpreter struct {
 	globals     *runtime.Environment
 	environment *runtime.Environment
 	locals      map[parser.Expr]int
+	Debug       bool
 }
 
 type clockNativeFunction struct{}
@@ -29,7 +30,7 @@ func (c clockNativeFunction) String() string {
 	return "<fn native>"
 }
 
-func NewInterpreter() *Interpreter {
+func NewInterpreter(debug bool) *Interpreter {
 	globals := runtime.NewEnvironment(nil)
 	clock := clockNativeFunction{}
 	var clockCallabe Callable = clock
@@ -39,6 +40,7 @@ func NewInterpreter() *Interpreter {
 		globals:     globals,
 		environment: globals,
 		locals:      map[parser.Expr]int{},
+		Debug:       debug,
 	}
 }
 
@@ -72,16 +74,28 @@ func (i *Interpreter) evaluate(expr parser.Expr) (any, error) {
 }
 
 func (i *Interpreter) VisitClassStmt(stmt parser.Class) (any, error) {
+	if i.Debug {
+		fmt.Printf("interpreter visit class name:%s\n", stmt.Name.Lexeme)
+	}
 	var superClass Class
 	var zeroVariabe parser.Variable
 	if stmt.SuperClass != zeroVariabe {
+		if i.Debug {
+			fmt.Printf("interpreter visit class name:%s has superclass\n", stmt.Name.Lexeme)
+		}
 		superClassVal, err := i.evaluate(stmt.SuperClass)
 		if err != nil {
+			if i.Debug {
+				fmt.Printf("interpreter visit class name:%s superclass err\n", stmt.Name.Lexeme)
+			}
 			return nil, err
 		}
 
 		superClassClass, ok := superClassVal.(Class)
 		if !ok {
+			if i.Debug {
+				fmt.Printf("interpreter visit class name:%s superclass not class\n", stmt.Name.Lexeme)
+			}
 			return nil, runtime.NewRuntimeError(stmt.Name, "Superclass must be a class")
 		}
 
@@ -90,6 +104,9 @@ func (i *Interpreter) VisitClassStmt(stmt parser.Class) (any, error) {
 	i.environment.Define(stmt.Name.Lexeme, nil)
 
 	if stmt.SuperClass != zeroVariabe {
+		if i.Debug {
+			fmt.Printf("interpreter visit class name:%s make superclass env and define super\n", stmt.Name.Lexeme)
+		}
 		i.environment = runtime.NewEnvironment(i.environment)
 		i.environment.Define("super", superClass)
 	}
@@ -109,22 +126,34 @@ func (i *Interpreter) VisitClassStmt(stmt parser.Class) (any, error) {
 
 	i.environment.Assign(stmt.Name, class)
 
+	if i.Debug {
+		fmt.Printf("interpreter visit class name:%s finished\n", stmt.Name.Lexeme)
+	}
 	return nil, nil
 }
 
 func (i *Interpreter) VisitReturnStmt(stmt parser.Return) (any, error) {
-	//fmt.Println("visit return")
+	if i.Debug {
+		fmt.Printf("interpreter visit return \n")
+	}
 	var val any = nil
 	var err error
 	if stmt.Value != nil {
+		if i.Debug {
+			fmt.Printf("interpreter visit return has value\n")
+		}
 		val, err = i.evaluate(stmt.Value)
 		if err != nil {
-			fmt.Printf("returm err: %v %T\n", err, err)
+			if i.Debug {
+				fmt.Printf("interpreter visit return value error %v %T\n", err, err)
+			}
 			return nil, err
 		}
 	}
 
-	//fmt.Printf("visit return val %v\n", val)
+	if i.Debug {
+		fmt.Printf("interpreter visit return finish value:%v\n", val)
+	}
 	return nil, runtime.NewReturn(val)
 }
 
@@ -133,45 +162,75 @@ func (i *Interpreter) VisitThisExpr(expr parser.This) (any, error) {
 }
 
 func (i *Interpreter) VisitSetExpr(expr parser.Set) (any, error) {
+	if i.Debug {
+		fmt.Printf("interpreter visit set name:%v\n", expr.Name.Lexeme)
+	}
 	object, err := i.evaluate(expr.Object)
 	if err != nil {
+		if i.Debug {
+			fmt.Printf("interpreter visit set name:%v object err %v %T\n", expr.Name.Lexeme, err, err)
+		}
 		return nil, err
 	}
 
 	objectInstance, ok := object.(Instance)
 	if !ok {
+		if i.Debug {
+			fmt.Printf("interpreter visit set name:%v not instance\n", expr.Name.Lexeme)
+		}
 		return nil, runtime.NewRuntimeError(expr.Name, "Only instances have properties")
 	}
 
 	value, err := i.evaluate(expr.Value)
 	if err != nil {
+		if i.Debug {
+			fmt.Printf("interpreter visit set name:%v value err %v %T\n", expr.Name.Lexeme, err, err)
+		}
 		return nil, err
 	}
 
 	objectInstance.Set(expr.Name, value)
 
+	if i.Debug {
+		fmt.Printf("interpreter visit set name:%v finished\n", expr.Name.Lexeme)
+	}
 	return value, nil
 }
 
 func (i *Interpreter) VisitGetExpr(expr parser.Get) (any, error) {
+	if i.Debug {
+		fmt.Printf("interpreter visit get name:%v\n", expr.Name.Lexeme)
+	}
 	object, err := i.evaluate(expr.Object)
 	if err != nil {
-		fmt.Printf("get err %v %T\n", err, err)
+		if i.Debug {
+			fmt.Printf("interpreter visit get name:%v object err %v %T\n", expr.Name.Lexeme, err, err)
+		}
 		return nil, err
 	}
 
 	if objectInstance, ok := object.(Instance); ok {
+		if i.Debug {
+			fmt.Printf("interpreter visit get name:%v finished\n", expr.Name.Lexeme)
+		}
 		return objectInstance.Get(expr.Name)
 	}
 
+	if i.Debug {
+		fmt.Printf("interpreter visit get name:%v not instance\n", expr.Name.Lexeme)
+	}
 	return nil, runtime.NewRuntimeError(expr.Name, "Only instances have properties")
 }
 
 func (i *Interpreter) VisitCallExpr(expr parser.Call) (any, error) {
-	//fmt.Println("visit call")
+	if i.Debug {
+		fmt.Printf("interpreter visit call\n")
+	}
 	callee, err := i.evaluate(expr.Callee)
 	if err != nil {
-		fmt.Printf("call 1 err: %v %T\n", err, err)
+		if i.Debug {
+			fmt.Printf("interpreter visit call calle error %v %T\n", err, err)
+		}
 		return nil, err
 	}
 
@@ -180,7 +239,9 @@ func (i *Interpreter) VisitCallExpr(expr parser.Call) (any, error) {
 	for _, arg := range expr.Arguments {
 		argVal, err := i.evaluate(arg)
 		if err != nil {
-			fmt.Printf("call 2 err: %v %T\n", err, err)
+			if i.Debug {
+				fmt.Printf("interpreter visit call arg vall error %v %T\n", err, err)
+			}
 			return nil, err
 		}
 
@@ -189,25 +250,34 @@ func (i *Interpreter) VisitCallExpr(expr parser.Call) (any, error) {
 
 	callable, ok := callee.(Callable)
 	if !ok {
+		if i.Debug {
+			fmt.Printf("interpreter visit call not callalbe\n")
+		}
 		return nil, runtime.NewRuntimeError(expr.Paren, "not callable")
 	}
 
 	if len(arguments) != callable.Arity() {
+		if i.Debug {
+			fmt.Printf("interpreter visit call err args %d vs arity %d\n", len(arguments), callable.Arity())
+		}
 		return nil, runtime.NewRuntimeError(expr.Paren, fmt.Sprintf("expect %d parameters got %d arguments", callable.Arity(), len(arguments)))
 	}
 
 	callVal, tErr := callable.Call(i, arguments)
 	if tErr != nil {
-		fmt.Printf("call 3 call val %v  err: %v %T\n", callVal, err, err)
+		if i.Debug {
+			fmt.Printf("interpreter visit call call value err value %v error %v %v\n", callVal, tErr, tErr)
+		}
 		return nil, tErr
 	}
 
-	//fmt.Printf("return val %v\n", callVal)
+	if i.Debug {
+		fmt.Printf("interpreter visit call finished value %v\n", callVal)
+	}
 	return callVal, nil
 }
 
 func (i *Interpreter) VisitFunctionStmt(stmt parser.Function) (any, error) {
-	//fmt.Println("visit function stmt")
 	function := NewLoxFunction(stmt, i.environment, false)
 	i.environment.Define(stmt.Name.Lexeme, function)
 
@@ -215,27 +285,22 @@ func (i *Interpreter) VisitFunctionStmt(stmt parser.Function) (any, error) {
 }
 
 func (i *Interpreter) VisitVarDeclaration(stmt parser.VarDeclaration) (any, error) {
-	//fmt.Println("visit var dec")
 	var initizlier any
 	var err error
 	if stmt.Initizlier != nil {
 		initizlier, err = i.evaluate(stmt.Initizlier)
 		if err != nil {
-			fmt.Printf("var dec err: %v %T\n", err, err)
 			return nil, err
 		}
 	}
 
-	//fmt.Printf("visit var dec %s %v\n", stmt.Name.Lexeme, initizlier)
 	i.environment.Define(stmt.Name.Lexeme, initizlier)
 	return nil, nil
 }
 
 func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) (any, error) {
-	//fmt.Println("visit while")
 	condition, err := i.evaluate(stmt.Condition)
 	if err != nil {
-		fmt.Printf("while 1  err: %v %T\n", err, err)
 		return nil, err
 	}
 
@@ -245,13 +310,11 @@ func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) (any, error) {
 		fmt.Println("here")
 		_, err = stmt.Body.Accept(i)
 		if err != nil {
-			fmt.Printf("while 2  err: %v %T\n", err, err)
 			return nil, err
 		}
 		condition, err = i.evaluate(stmt.Condition)
 
 		if err != nil {
-			fmt.Printf("while 3  err: %v %T\n", err, err)
 			return nil, err
 		}
 		conditionTruthy = i.isTruthy(condition)
@@ -260,11 +323,9 @@ func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) (any, error) {
 }
 
 func (i *Interpreter) VisitIfStmt(stmt parser.IfStmt) (any, error) {
-	//fmt.Println("visit if stmt")
 	condition, err := i.evaluate(stmt.Condition)
 
 	if err != nil {
-		fmt.Printf("if 1  err: %v %T\n", err, err)
 		return nil, err
 	}
 	conditionTruthy := i.isTruthy(condition)
@@ -272,13 +333,11 @@ func (i *Interpreter) VisitIfStmt(stmt parser.IfStmt) (any, error) {
 	if conditionTruthy {
 		_, err = stmt.ThenBranch.Accept(i)
 		if err != nil {
-			fmt.Printf("if 3  err: %v %T\n", err, err)
 			return nil, err
 		}
 	} else if stmt.ElseBranch != nil {
 		_, err = stmt.ElseBranch.Accept(i)
 		if err != nil {
-			fmt.Printf("if 4  err: %v %T\n", err, err)
 			return nil, err
 		}
 	}
@@ -290,25 +349,21 @@ func (i *Interpreter) VisitBlockStmt(stmt parser.Block) (any, error) {
 	err := i.executeBlock(stmt.Statements, runtime.NewEnvironment(i.environment))
 
 	if err != nil {
-		fmt.Printf("block  1  err: %v %T\n", err, err)
 		return nil, err
 	}
 	return nil, nil
 }
 
 func (i *Interpreter) VisitExpressionStmt(stmt parser.ExpressionStmt) (any, error) {
-	//fmt.Println("visit expr stmt")
 	return i.evaluate(stmt.Expression)
 }
 
 func (i *Interpreter) VisitPrintStmt(stmt parser.PrintStmt) (any, error) {
-	//fmt.Println("visit print")
 	val, err := i.evaluate(stmt.Expression)
 	if err != nil {
-		fmt.Printf("print  1  err: %v %T\n", err, err)
 		return nil, err
 	}
-	//fmt.Printf("visit print val %v\n", val)
+
 	if val == nil {
 		fmt.Println("nil")
 	} else {
@@ -353,21 +408,17 @@ func (i *Interpreter) VisitSuperExpr(expr parser.Super) (any, error) {
 }
 
 func (i *Interpreter) VisitAssignExpr(expr parser.Assign) (any, error) {
-	//fmt.Println("visit asggine expr")
 	val, err := i.evaluate(expr.Expr)
 
 	if err != nil {
-		fmt.Printf("assgin 1  err: %v %T\n", err, err)
 		return nil, err
 	}
 
 	if dist, ok := i.locals[expr]; ok {
 		i.environment.AssignAt(dist, expr.Lexem, val)
 	} else {
-		//fmt.Printf("visit assinge expr %s %v\n", expr.Lexem, val)
 		tErr := i.globals.Assign(expr.Lexem, val)
 		if tErr != nil {
-			fmt.Printf("assgin 2  err: %v %T\n", err, err)
 			return nil, tErr
 		}
 	}
@@ -376,31 +427,25 @@ func (i *Interpreter) VisitAssignExpr(expr parser.Assign) (any, error) {
 }
 
 func (i *Interpreter) VisitVariableExpr(expr parser.Variable) (any, error) {
-	//fmt.Println("visit var expr")
 	return i.lookUpVariable(expr.Name, expr)
 }
 
 func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
-	//fmt.Println("visit binary expr")
 	leftVal, err := i.evaluate(expr.Left)
 	if err != nil {
-		fmt.Printf("bi 1  err: %v %T\n", err, err)
 		return nil, err
 	}
 
 	rightVal, err := i.evaluate(expr.Right)
 	if err != nil {
-		fmt.Printf("bi 2  err: %v %T\n", err, err)
 		return nil, err
 	}
 
-	//fmt.Printf("visit binary expr %v %v\n", leftVal, rightVal)
 	switch expr.Operator.TokenType {
 	case scanner.MINUS:
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
-				fmt.Printf("bi 3  err: %v %T\n", err, err)
 				return nil, err
 			}
 
@@ -411,7 +456,6 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
-				fmt.Printf("bi 4  err: %v %T\n", err, err)
 				return nil, err
 			}
 
@@ -421,7 +465,6 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
-				fmt.Printf("bi 5  err: %v %T\n", err, err)
 				return nil, err
 			}
 
@@ -447,7 +490,6 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
-				fmt.Printf("log 3  err: %v %T\n", err, err)
 				return nil, err
 			}
 
@@ -457,7 +499,6 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
-				fmt.Printf("log 4  err: %v %T\n", err, err)
 				return nil, err
 			}
 
@@ -467,7 +508,6 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
-				fmt.Printf("log 5  err: %v %T\n", err, err)
 				return nil, err
 			}
 
@@ -477,7 +517,6 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 		{
 			left, right, err := i.checkNumberOperands(expr.Operator, leftVal, rightVal)
 			if err != nil {
-				fmt.Printf("log 6  err: %v %T\n", err, err)
 				return nil, err
 			}
 
@@ -492,7 +531,6 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 				return false, nil
 			}
 
-			fmt.Printf("left %v type %T rigth %v type %T\n", leftVal, leftVal, rightVal, rightVal)
 			return leftVal == rightVal, nil
 		}
 	case scanner.BANG_EQUAL:
@@ -514,14 +552,11 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 }
 
 func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
-	//fmt.Println("visit logicla expr")
 	leftVal, err := i.evaluate(expr.Left)
 	if err != nil {
-		fmt.Printf("log 1  err: %v %T\n", err, err)
 		return nil, err
 	}
 
-	//fmt.Printf("visit logical expr %v %v\n", leftVal, rightVal)
 	if expr.Operator.TokenType == scanner.OR {
 		if i.isTruthy(leftVal) {
 			return leftVal, nil
@@ -534,7 +569,6 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 
 	rightVal, err := i.evaluate(expr.Right)
 	if err != nil {
-		fmt.Printf("log 2  err: %v %T\n", err, err)
 		return nil, err
 	}
 
@@ -542,24 +576,19 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.Logical) (any, error) {
 }
 
 func (i *Interpreter) VisitGroupingExpr(expr parser.Grouping) (any, error) {
-	//fmt.Println("visit grpuing")
 	return i.evaluate(expr.Expr)
 }
 
 func (i *Interpreter) VisitLiteralExpr(expr parser.Literal) (any, error) {
-	//fmt.Println("visit literal")
-	//fmt.Printf("visit literal %v\n", expr.Value)
 	return expr.Value, nil
 }
 
 func (i *Interpreter) executeBlock(stmts []parser.Stmt, enviroment *runtime.Environment) error {
-	//fmt.Println("ecvute block")
 	prev := i.environment
 	i.environment = enviroment
 	for _, stmt_ := range stmts {
 		_, err := stmt_.Accept(i)
 		if err != nil {
-			fmt.Printf("execute block  err: %v %T\n", err, err)
 			i.environment = prev
 			return err
 		}
@@ -570,11 +599,9 @@ func (i *Interpreter) executeBlock(stmts []parser.Stmt, enviroment *runtime.Envi
 }
 
 func (i *Interpreter) VisitUnaryExpr(expr parser.Unary) (any, error) {
-	//fmt.Println("visit unraty ")
 	rigthVal, err := i.evaluate(expr.Right)
 
 	if err != nil {
-		fmt.Printf("unary 1  err: %v %T\n", err, err)
 		return nil, err
 	}
 
@@ -583,7 +610,6 @@ func (i *Interpreter) VisitUnaryExpr(expr parser.Unary) (any, error) {
 		{
 			rigthNum, err := i.checkNumberOperand(expr.Operator, rigthVal)
 			if err != nil {
-				fmt.Printf("unary 2  err: %v %T\n", err, err)
 				return nil, err
 			}
 			return -rigthNum, nil
@@ -602,21 +628,37 @@ func (i *Interpreter) VisitUnaryExpr(expr parser.Unary) (any, error) {
 }
 
 func (i *Interpreter) lookUpVariable(name scanner.Token, expr parser.Expr) (any, error) {
+	if i.Debug {
+		fmt.Printf("lookup variable name:%s\n", name.Lexeme)
+	}
 	if dist, ok := i.locals[expr]; ok {
+		if i.Debug {
+			fmt.Printf("lookup variable name:%s found dist:%d\n", name.Lexeme, dist)
+		}
 		val, err := i.environment.GetAt(dist, name.Lexeme)
 		if err != nil {
-			fmt.Printf("look up  err: %v %T\n", err, err)
+			if i.Debug {
+				fmt.Printf("lookup variable name:%s found dist:%d get at error %v %T\n", name.Lexeme, dist, err, err)
+			}
 			return nil, err
 		}
 
 		return val, nil
 	} else {
+		if i.Debug {
+			fmt.Printf("lookup variable name:%s look global\n", name.Lexeme)
+		}
 		val, err := i.globals.Get(name)
 		if err != nil {
-			fmt.Printf("look up2  err: %v %T\n", err, err)
+			if i.Debug {
+				fmt.Printf("lookup variable name:%s global get error %v %T\n", name.Lexeme, dist, err, err)
+			}
 			return nil, err
 		}
 
+		if i.Debug {
+			fmt.Printf("lookup variable name:%s finshed val %v\n", name.Lexeme, val)
+		}
 		return val, nil
 	}
 }

@@ -118,13 +118,17 @@ func (a *AstPrinter) VisitReturnStmt(stmt parser.Return) (any, error) {
 }
 
 func (a *AstPrinter) VisitClassStmt(stmt parser.Class) (any, error) {
-	//superclass := stmt.Superclass
+	superclass := stmt.SuperClass
 	var methods []string
 	for _, method := range stmt.Methods {
 		methods = append(methods, a.print(method))
 	}
-	//a.VisitVariableExpr(superclass)
-	return fmt.Sprintf("(class %s superclass [%s] %s)", stmt.Name.Lexeme, strings.Join(methods, " ")), nil
+	val, err := a.VisitVariableExpr(superclass)
+	if err != nil {
+		fmt.Printf("ast printer super class error %v\n", err)
+		return "", nil
+	}
+	return fmt.Sprintf("(class %s superclass [%s] %s)", stmt.Name.Lexeme, val, strings.Join(methods, " ")), nil
 }
 
 func (a *AstPrinter) Print(stmts []parser.Stmt) {

@@ -29,9 +29,10 @@ type Scanner struct {
 	current  int
 	length   int
 	line     int
+	debug    bool
 }
 
-func NewScanner(source []byte) *Scanner {
+func NewScanner(source []byte, debug bool) *Scanner {
 	return &Scanner{
 		keywords: map[string]TokenType{
 			"and":    AND,
@@ -54,6 +55,7 @@ func NewScanner(source []byte) *Scanner {
 		source: source,
 		line:   1,
 		length: len(source),
+		debug:  debug,
 	}
 }
 

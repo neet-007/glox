@@ -1,6 +1,8 @@
 package resolver
 
 import (
+	"fmt"
+
 	"github.com/neet-007/glox/pkg/interpreter"
 	"github.com/neet-007/glox/pkg/parser"
 	"github.com/neet-007/glox/pkg/scanner"
@@ -21,6 +23,34 @@ const (
 	CLASS
 	SUBCLASS
 )
+
+func (f FunctionType) String() string {
+	switch f {
+	case NONE_FUNCTION:
+		return "NONE_FUNCTION"
+	case FUNCTION:
+		return "FUNCTION"
+	case INITIALIZER:
+		return "INITIALIZER"
+	case METHOD:
+		return "METHOD"
+	default:
+		return "UNKNOWN_FUNCTION_TYPE"
+	}
+}
+
+func (c ClassType) String() string {
+	switch c {
+	case NONE_CLASS:
+		return "NONE_CLASS"
+	case CLASS:
+		return "CLASS"
+	case SUBCLASS:
+		return "SUBCLASS"
+	default:
+		return "UNKNOWN_CLASS_TYPE"
+	}
+}
 
 type CompileError struct {
 	Token   scanner.Token
@@ -44,15 +74,17 @@ type Resolver struct {
 	errors          []*CompileError
 	currentFunction FunctionType
 	currentClass    ClassType
+	debug           bool
 }
 
-func NewResolver(interpreter *interpreter.Interpreter) *Resolver {
+func NewResolver(interpreter *interpreter.Interpreter, debug bool) *Resolver {
 	return &Resolver{
 		interpreter:     interpreter,
 		scopes:          []map[string]bool{},
 		errors:          []*CompileError{},
 		currentFunction: NONE_FUNCTION,
 		currentClass:    NONE_CLASS,
+		debug:           debug,
 	}
 }
 
@@ -79,15 +111,27 @@ func (r *Resolver) resolveExpr(expr parser.Expr) (any, error) {
 }
 
 func (r *Resolver) resolveLocal(expr parser.Expr, name scanner.Token) {
+	if r.debug {
+		fmt.Printf("resolve local name:%s\n", name.Lexeme)
+	}
 	for i := len(r.scopes) - 1; i >= 0; i-- {
 		if _, ok := r.scopes[i][name.Lexeme]; ok {
+			if r.debug {
+				fmt.Printf("resolve local name:%s found dist %d\n", name.Lexeme, len(r.scopes)-1-i)
+			}
 			r.interpreter.ResolveExpr(expr, len(r.scopes)-1-i)
 			return
 		}
 	}
+	if r.debug {
+		fmt.Printf("resolve local name:%s not found\n", name.Lexeme)
+	}
 }
 
 func (r *Resolver) resolveFunction(stmt parser.Function, functionType FunctionType) {
+	if r.debug {
+		fmt.Printf("resolve function name: %s type:%s\n", stmt.Name.Lexeme, functionType)
+	}
 	enclosingFunction := r.currentFunction
 	r.currentFunction = functionType
 	r.beginScope()
@@ -97,6 +141,9 @@ func (r *Resolver) resolveFunction(stmt parser.Function, functionType FunctionTy
 		r.define(param)
 	}
 
+	if r.debug {
+		fmt.Printf("resolve function name: %s type:%s finish\n", stmt.Name.Lexeme, functionType)
+	}
 	r.resolveStmts(stmt.Body)
 	r.endScope()
 	r.currentFunction = enclosingFunction
@@ -235,6 +282,9 @@ func (r *Resolver) VisitUnaryExpr(expr parser.Unary) (any, error) {
 }
 
 func (r *Resolver) VisitClassStmt(stmt parser.Class) (any, error) {
+	if r.debug {
+		fmt.Printf("resolver visit class name:%s\n", stmt.Name.Lexeme)
+	}
 	currentClass := r.currentClass
 	r.currentClass = CLASS
 	r.declare(stmt.Name)
@@ -242,6 +292,9 @@ func (r *Resolver) VisitClassStmt(stmt parser.Class) (any, error) {
 
 	var zeroVariabe parser.Variable
 	if stmt.SuperClass != zeroVariabe {
+		if r.debug {
+			fmt.Printf("resolver visit class name:%s has superclass\n", stmt.Name.Lexeme)
+		}
 		r.currentClass = SUBCLASS
 		if stmt.SuperClass.Name == stmt.Name {
 			r.error(NewCompileError(stmt.Name, "A class can't inherit from itself."))
@@ -261,6 +314,9 @@ func (r *Resolver) VisitClassStmt(stmt parser.Class) (any, error) {
 	for _, method := range stmt.Methods {
 		declaation := METHOD
 		if method.Name.Lexeme == "init" {
+			if r.debug {
+				fmt.Printf("resolver visit class name:%s has init method\n", stmt.Name.Lexeme)
+			}
 			declaation = INITIALIZER
 		}
 		r.resolveFunction(method, declaation)
@@ -273,21 +329,40 @@ func (r *Resolver) VisitClassStmt(stmt parser.Class) (any, error) {
 		r.endScope()
 	}
 
+	if r.debug {
+		fmt.Printf("resolver visit class name:%s finished\n", stmt.Name.Lexeme)
+	}
 	r.currentClass = currentClass
 	return nil, nil
 }
 
 func (r *Resolver) VisitReturnStmt(stmt parser.Return) (any, error) {
+	if r.debug {
+		fmt.Printf("resolver visit return\n")
+	}
 	if r.currentFunction == NONE_FUNCTION {
+		if r.debug {
+			fmt.Printf("resolver visit return not function\n")
+		}
 		r.error(NewCompileError(stmt.Keyword, "Can't return from top-level code."))
 		return nil, nil
 	}
 	if stmt.Value != nil {
+		if r.debug {
+			fmt.Printf("resolver visit return has value\n")
+		}
 		if r.currentFunction == INITIALIZER {
+			if r.debug {
+				fmt.Printf("resolver visit return has value but in init method\n")
+			}
 			r.error(NewCompileError(stmt.Keyword, "Can't return a value from an initializer."))
 			return nil, nil
 		}
 		r.resolveExpr(stmt.Value)
+	}
+
+	if r.debug {
+		fmt.Printf("resolver visit return finished\n")
 	}
 	return nil, nil
 }

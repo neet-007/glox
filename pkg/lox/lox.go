@@ -2,6 +2,7 @@ package lox
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"os"
 
@@ -9,41 +10,50 @@ import (
 	"github.com/neet-007/glox/pkg/parser"
 	"github.com/neet-007/glox/pkg/resolver"
 	"github.com/neet-007/glox/pkg/scanner"
+	"github.com/neet-007/glox/pkg/utils"
 )
 
 type Lox struct {
 	interpreter     *interpreter.Interpreter
 	hadError        bool
 	hadRuntimeError bool
+	debug           bool
+	printAst        bool
 }
 
 func NewLox() *Lox {
 	return &Lox{
-		interpreter: interpreter.NewInterpreter(),
+		interpreter: interpreter.NewInterpreter(false),
 	}
 }
 
 func (l *Lox) Main() {
-	args := os.Args
+	debug := flag.Bool("debug", false, "turn on debug mode")
+	printAst := flag.Bool("ast", false, "print parser AST")
+	flag.Parse()
+
+	l.debug = *debug
+	l.printAst = *printAst
+	l.interpreter.Debug = *debug
+
+	args := flag.Args()
+
+	if len(args) > 1 {
+		fmt.Fprintln(os.Stderr, "Usage: glox [script]")
+		os.Exit(64)
+	}
 
 	if len(args) == 1 {
+		l.runFile(args[0])
+	} else {
 		l.runPromt()
-		return
-
 	}
-	if len(args) == 2 {
-		l.runFile(args[1])
-		return
-	}
-
-	fmt.Fprintln(os.Stderr, "Usage: glox [script]")
-	os.Exit(64)
 }
 
 func (l *Lox) runFile(filePath string) {
-	file, err := os.ReadFile(os.Args[1])
+	file, err := os.ReadFile(filePath)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to open file with error: %w", err)
+		fmt.Fprintf(os.Stderr, "Failed to open file %s with error: %w\n", filePath, err)
 	}
 
 	l.run(file)
@@ -66,7 +76,7 @@ func (l *Lox) runPromt() {
 			if err.Error() == "EOF" {
 				break
 			}
-			fmt.Fprintln(os.Stderr, "Error reading input:", err)
+			fmt.Fprintf(os.Stderr, "Error reading input: %w\n", err)
 			break
 		}
 
@@ -80,26 +90,30 @@ func (l *Lox) runPromt() {
 }
 
 func (l *Lox) run(source []byte) {
-	scanner := scanner.NewScanner(source)
+	scanner := scanner.NewScanner(source, l.debug)
 	tokens, scannerErrors := scanner.Scan()
 
 	for _, err := range scannerErrors {
 		l.error(err.Token, err.Message)
 	}
 
-	parser_ := parser.NewParser(tokens)
+	parser_ := parser.NewParser(tokens, l.debug)
 	statements, parserErrors := parser_.Parse()
 
 	for _, err := range parserErrors {
 		l.error(err.Token, err.Message)
 	}
 
+	if l.printAst {
+		astPrinter := utils.NewAstPrinter()
+		astPrinter.Print(statements)
+	}
+
 	if l.hadError {
 		return
 	}
 
-	interpreter_ := interpreter.NewInterpreter()
-	resolver_ := resolver.NewResolver(interpreter_)
+	resolver_ := resolver.NewResolver(l.interpreter, l.debug)
 
 	compileErros := resolver_.Resolve(statements)
 	for _, err := range compileErros {
@@ -110,7 +124,7 @@ func (l *Lox) run(source []byte) {
 		return
 	}
 
-	err := interpreter_.Interpret(statements)
+	err := l.interpreter.Interpret(statements)
 	if err != nil {
 		l.error(err.Token, err.Message)
 	}

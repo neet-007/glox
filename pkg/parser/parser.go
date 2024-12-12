@@ -27,13 +27,15 @@ type Parser struct {
 	errors  []*ParseError
 	current int
 	length  int
+	debug   bool
 }
 
-func NewParser(tokens []scanner.Token) *Parser {
+func NewParser(tokens []scanner.Token, debug bool) *Parser {
 	return &Parser{
 		tokens: tokens,
 		errors: []*ParseError{},
 		length: len(tokens),
+		debug:  debug,
 	}
 }
 
