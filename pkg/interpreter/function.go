@@ -32,7 +32,11 @@ func (l LoxFunction) Call(interpreter *Interpreter, arguemnts []any) (any, error
 	if err != nil {
 		if returnVal, ok := err.(*runtime.Return); ok {
 			if l.isInitilizer {
-				return l.closure.GetAt(0, "this")
+				val, err := l.closure.GetAt(0, "this")
+				if err != nil {
+					return nil, err
+				}
+				return val, nil
 			}
 			return returnVal.Value, nil
 		}
@@ -42,7 +46,11 @@ func (l LoxFunction) Call(interpreter *Interpreter, arguemnts []any) (any, error
 	}
 
 	if l.isInitilizer {
-		return l.closure.GetAt(0, "this")
+		val, err := l.closure.GetAt(0, "this")
+		if err != nil {
+			return nil, err
+		}
+		return val, nil
 	}
 	return nil, nil
 }

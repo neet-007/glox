@@ -193,12 +193,12 @@ func (i *Interpreter) VisitCallExpr(expr parser.Call) (any, error) {
 	}
 
 	if len(arguments) != callable.Arity() {
-		return nil, runtime.NewRuntimeError(expr.Paren, fmt.Sprintf("expect %d parameters got %d arguments", len(arguments), callable.Arity()))
+		return nil, runtime.NewRuntimeError(expr.Paren, fmt.Sprintf("expect %d parameters got %d arguments", callable.Arity(), len(arguments)))
 	}
 
 	callVal, tErr := callable.Call(i, arguments)
 	if tErr != nil {
-		fmt.Printf("call 3 err: %v %T\n", err, err)
+		fmt.Printf("call 3 call val %v  err: %v %T\n", callVal, err, err)
 		return nil, tErr
 	}
 
@@ -242,7 +242,12 @@ func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) (any, error) {
 	conditionTruthy := i.isTruthy(condition)
 
 	for conditionTruthy {
-		stmt.Body.Accept(i)
+		fmt.Println("here")
+		_, err = stmt.Body.Accept(i)
+		if err != nil {
+			fmt.Printf("while 2  err: %v %T\n", err, err)
+			return nil, err
+		}
 		condition, err = i.evaluate(stmt.Condition)
 
 		if err != nil {
@@ -487,6 +492,7 @@ func (i *Interpreter) VisitBinaryExpr(expr parser.Binary) (any, error) {
 				return false, nil
 			}
 
+			fmt.Printf("left %v type %T rigth %v type %T\n", leftVal, leftVal, rightVal, rightVal)
 			return leftVal == rightVal, nil
 		}
 	case scanner.BANG_EQUAL:

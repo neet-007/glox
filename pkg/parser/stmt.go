@@ -52,6 +52,25 @@ func (c Class) String() string {
 	return fmt.Sprintf("class name: %v\nmethods: %v\n\n", c.Name, c.Methods)
 }
 
+/*
+func (c Class) Equals(other Class) bool {
+	if c.Name != other.Name {
+		return false
+	}
+
+	if len(c.Methods) != len(other.Methods) {
+		return false
+	}
+	for i, value := range c.Methods {
+		if other.Methods[i] != value {
+			return false
+		}
+	}
+
+	return true
+}
+*/
+
 func (c Class) Accept(visitor VisitStmt) (any, error) {
 	return visitor.VisitClassStmt(c)
 }
