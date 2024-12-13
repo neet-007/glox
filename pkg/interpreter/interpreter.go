@@ -30,12 +30,38 @@ func (c clockNativeFunction) String() string {
 	return "<fn native>"
 }
 
+type lenNativeFunction struct{}
+
+func (l lenNativeFunction) Arity() int {
+	return 1
+}
+
+func (l lenNativeFunction) Call(interpreter *Interpreter, arguemnts []any) (any, error) {
+	if len(arguemnts) != 1 {
+		return nil, runtime.NewRuntimeError(scanner.Token{TokenType: scanner.Error}, "len must be passed 1 argument that is iterable")
+	}
+
+	list, ok := arguemnts[0].(List)
+	if !ok {
+		return nil, runtime.NewRuntimeError(scanner.Token{TokenType: scanner.Error}, "len must be passed 1 argument that is iterable")
+	}
+
+	return float64(len(list.items)), nil
+}
+
+func (l lenNativeFunction) String() string {
+	return "<fn native>"
+}
+
 func NewInterpreter(debug bool) *Interpreter {
 	globals := runtime.NewEnvironment(nil)
 	clock := clockNativeFunction{}
+	len_ := lenNativeFunction{}
 	var clockCallabe Callable = clock
+	var lenCallable Callable = len_
 
 	globals.Define("clock", clockCallabe)
+	globals.Define("len", lenCallable)
 	return &Interpreter{
 		globals:     globals,
 		environment: globals,
