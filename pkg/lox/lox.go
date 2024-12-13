@@ -39,7 +39,7 @@ func (l *Lox) Main() {
 	args := flag.Args()
 
 	if len(args) > 1 {
-		fmt.Fprintln(os.Stderr, "Usage: glox [script]")
+		fmt.Fprintln(os.Stderr, "Usage: glox --ast --debug [script]")
 		os.Exit(64)
 	}
 

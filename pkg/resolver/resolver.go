@@ -264,6 +264,18 @@ func (r *Resolver) VisitGroupingExpr(expr parser.Grouping) (any, error) {
 	return nil, nil
 }
 
+func (r *Resolver) VisitListSet(expr parser.ListSet) (any, error) {
+	return nil, nil
+}
+
+func (r *Resolver) VisitListGet(expr parser.ListGet) (any, error) {
+	return nil, nil
+}
+
+func (r *Resolver) VisitListExpr(expr parser.List) (any, error) {
+	return nil, nil
+}
+
 func (r *Resolver) VisitLiteralExpr(expr parser.Literal) (any, error) {
 	return nil, nil
 }

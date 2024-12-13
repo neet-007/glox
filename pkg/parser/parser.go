@@ -410,6 +410,8 @@ func (p *Parser) assignment() (Expr, *ParseError) {
 			return NewAssign(exprVal.Name, val), nil
 		} else if exprGet, ok := expr.(Get); ok {
 			return NewSet(val, exprGet.Object, exprGet.Name), nil
+		} else if exprListGet, ok := expr.(ListGet); ok {
+			return NewListSet(exprListGet.List, exprListGet.Index, val), nil
 		}
 
 		return nil, newParseError(equal, "assigenmnt to invalid value")
@@ -562,12 +564,27 @@ func (p *Parser) call() (Expr, *ParseError) {
 				return nil, parseErr
 			}
 			expr = NewGet(expr, name)
+		} else if p.match(scanner.LEFT_BRACKET) {
+			expr, parseErr = p.finishList(expr)
 		} else {
 			break
 		}
 	}
 
 	return expr, nil
+}
+
+func (p *Parser) finishList(expr Expr) (Expr, *ParseError) {
+	index, parseErr := p.consume(scanner.NUMBER, "Expect number for index")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	_, parseErr = p.consume(scanner.RIGHT_BRACKET, "Expect ']' after index")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	return NewListGet(expr, index), nil
 }
 
 func (p *Parser) finishCall(expr Expr) (Expr, *ParseError) {
@@ -635,6 +652,32 @@ func (p *Parser) primary() (Expr, *ParseError) {
 
 		return NewSuper(super, method), nil
 
+	}
+	if p.match(scanner.LEFT_BRACKET) {
+		leftBracker := p.previous()
+		values := []Expr{}
+		if !p.check(scanner.RIGHT_BRACKET) {
+			val, parseErr := p.primary()
+			if parseErr != nil {
+				return nil, parseErr
+			}
+			values = append(values, val)
+
+			for p.match(scanner.COMMA) {
+				val, parseErr = p.primary()
+				if parseErr != nil {
+					return nil, parseErr
+				}
+				values = append(values, val)
+			}
+		}
+
+		rightBracket, parseErr := p.consume(scanner.RIGHT_BRACKET, "expect ']' after list")
+		if parseErr != nil {
+			return nil, parseErr
+		}
+
+		return NewList(leftBracker, rightBracket, values), nil
 	}
 	if p.match(scanner.LEFT_PAREN) {
 		expr, parseErr := p.expression()

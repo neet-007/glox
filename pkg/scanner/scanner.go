@@ -100,6 +100,16 @@ func (s *Scanner) scanToken() *ScannerError {
 			break
 
 		}
+	case '[':
+		{
+			s.addToken(LEFT_BRACKET, nil)
+			break
+		}
+	case ']':
+		{
+			s.addToken(RIGHT_BRACKET, nil)
+			break
+		}
 	case ',':
 		{
 			s.addToken(COMMA, nil)

@@ -579,6 +579,18 @@ func (i *Interpreter) VisitGroupingExpr(expr parser.Grouping) (any, error) {
 	return i.evaluate(expr.Expr)
 }
 
+func (i *Interpreter) VisitListSet(expr parser.ListSet) (any, error) {
+	return "list set not impleainter", nil
+}
+
+func (i *Interpreter) VisitListGet(expr parser.ListGet) (any, error) {
+	return "list get not impleainter", nil
+}
+
+func (i *Interpreter) VisitListExpr(expr parser.List) (any, error) {
+	return "list not impleainter", nil
+}
+
 func (i *Interpreter) VisitLiteralExpr(expr parser.Literal) (any, error) {
 	return expr.Value, nil
 }

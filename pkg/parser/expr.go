@@ -15,6 +15,9 @@ import (
 */
 
 type VisitExpr interface {
+	VisitListSet(expr ListSet) (any, error)
+	VisitListGet(expr ListGet) (any, error)
+	VisitListExpr(expr List) (any, error)
 	VisitSuperExpr(expr Super) (any, error)
 	VisitThisExpr(expr This) (any, error)
 	VisitSetExpr(expr Set) (any, error)
@@ -209,6 +212,64 @@ func NewLiteral(value any) Literal {
 
 func (l Literal) Accept(visitor VisitExpr) (any, error) {
 	return visitor.VisitLiteralExpr(l)
+}
+
+type ListSet struct {
+	List      Expr
+	Index     scanner.Token
+	Value     any
+	timestamp int64 // Unique field
+}
+
+func NewListSet(list Expr, index scanner.Token, value any) ListSet {
+	return ListSet{
+		List:      list,
+		Index:     index,
+		Value:     value,
+		timestamp: time.Now().UnixNano(),
+	}
+}
+
+func (l ListSet) Accept(visitor VisitExpr) (any, error) {
+	return visitor.VisitListSet(l)
+}
+
+type ListGet struct {
+	List      Expr
+	Index     scanner.Token
+	timestamp int64 // Unique field
+}
+
+func NewListGet(list Expr, index scanner.Token) ListGet {
+	return ListGet{
+		List:      list,
+		Index:     index,
+		timestamp: time.Now().UnixNano(),
+	}
+}
+
+func (l ListGet) Accept(visitor VisitExpr) (any, error) {
+	return visitor.VisitListGet(l)
+}
+
+type List struct {
+	Literals     []Expr
+	LeftBracket  scanner.Token
+	RightBracket scanner.Token
+	timestamp    int64 // Unique field
+}
+
+func NewList(leftBracket scanner.Token, rightBracket scanner.Token, literals []Expr) List {
+	return List{
+		LeftBracket:  leftBracket,
+		RightBracket: rightBracket,
+		Literals:     literals,
+		timestamp:    time.Now().UnixNano(),
+	}
+}
+
+func (l List) Accept(visitor VisitExpr) (any, error) {
+	return visitor.VisitListExpr(l)
 }
 
 type Logical struct {
