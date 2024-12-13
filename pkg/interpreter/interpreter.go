@@ -307,7 +307,6 @@ func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) (any, error) {
 	conditionTruthy := i.isTruthy(condition)
 
 	for conditionTruthy {
-		fmt.Println("here")
 		_, err = stmt.Body.Accept(i)
 		if err != nil {
 			return nil, err
@@ -580,15 +579,70 @@ func (i *Interpreter) VisitGroupingExpr(expr parser.Grouping) (any, error) {
 }
 
 func (i *Interpreter) VisitListSet(expr parser.ListSet) (any, error) {
-	return "list set not impleainter", nil
+	list, err := i.evaluate(expr.List)
+	if err != nil {
+		return nil, err
+	}
+	indexVal, err := i.evaluate(expr.Index)
+	if err != nil {
+		return nil, err
+	}
+
+	value, err := i.evaluate(expr.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	listList, ok := list.(List)
+	if !ok {
+		return nil, runtime.NewRuntimeError(expr.Token, "only lists support index")
+	}
+
+	index, err := i.valueToInt(expr.Token, indexVal)
+	tErr := listList.Set(index, value)
+	if tErr != nil {
+		return nil, tErr
+	}
+
+	return nil, nil
 }
 
 func (i *Interpreter) VisitListGet(expr parser.ListGet) (any, error) {
-	return "list get not impleainter", nil
+	list, err := i.evaluate(expr.List)
+	if err != nil {
+		return nil, err
+	}
+	indexVal, err := i.evaluate(expr.Index)
+	if err != nil {
+		return nil, err
+	}
+
+	listList, ok := list.(List)
+	if !ok {
+		return nil, runtime.NewRuntimeError(expr.Token, "only lists support index")
+	}
+
+	index, err := i.valueToInt(expr.Token, indexVal)
+	val, tErr := listList.Get(index)
+	if tErr != nil {
+		return nil, tErr
+	}
+	return val, nil
 }
 
-func (i *Interpreter) VisitListExpr(expr parser.List) (any, error) {
-	return "list not impleainter", nil
+func (i *Interpreter) VisitListExpr(expr parser.ListExpr) (any, error) {
+	items := make([]any, len(expr.Literals))
+
+	for j, literal := range expr.Literals {
+		item, err := i.evaluate(literal)
+		if err != nil {
+			return nil, err
+		}
+		items[j] = item
+	}
+
+	list := NewList(expr, items)
+	return list, nil
 }
 
 func (i *Interpreter) VisitLiteralExpr(expr parser.Literal) (any, error) {
@@ -673,6 +727,17 @@ func (i *Interpreter) lookUpVariable(name scanner.Token, expr parser.Expr) (any,
 		}
 		return val, nil
 	}
+}
+
+func (i *Interpreter) valueToInt(token scanner.Token, v any) (int, error) {
+	f, ok := v.(float64)
+	if !ok {
+		return 0, runtime.NewRuntimeError(token, "value is not an integer")
+	}
+	if f != float64(int(f)) {
+		return 0, runtime.NewRuntimeError(token, "value is not an integer")
+	}
+	return int(f), nil
 }
 
 func (i *Interpreter) isTruthy(value any) bool {

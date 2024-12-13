@@ -38,14 +38,14 @@ func (a *AstPrinter) VisitGroupingExpr(expr parser.Grouping) (any, error) {
 }
 
 func (a *AstPrinter) VisitListSet(expr parser.ListSet) (any, error) {
-	return a.parenthesize(fmt.Sprintf("list set with index %v val %v\n", expr.Index, expr.Value), expr.List), nil
+	return a.parenthesize("list get", []parser.Expr{expr.Index, expr.Value, expr.List}...), nil
 }
 
 func (a *AstPrinter) VisitListGet(expr parser.ListGet) (any, error) {
-	return a.parenthesize(fmt.Sprintf("list get with index %v\n", expr.Index.Literal), expr.List), nil
+	return a.parenthesize("list get", []parser.Expr{expr.List, expr.Index}...), nil
 }
 
-func (a *AstPrinter) VisitListExpr(expr parser.List) (any, error) {
+func (a *AstPrinter) VisitListExpr(expr parser.ListExpr) (any, error) {
 	return a.parenthesize("list", expr.Literals...), nil
 }
 

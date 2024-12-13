@@ -17,7 +17,7 @@ import (
 type VisitExpr interface {
 	VisitListSet(expr ListSet) (any, error)
 	VisitListGet(expr ListGet) (any, error)
-	VisitListExpr(expr List) (any, error)
+	VisitListExpr(expr ListExpr) (any, error)
 	VisitSuperExpr(expr Super) (any, error)
 	VisitThisExpr(expr This) (any, error)
 	VisitSetExpr(expr Set) (any, error)
@@ -216,16 +216,18 @@ func (l Literal) Accept(visitor VisitExpr) (any, error) {
 
 type ListSet struct {
 	List      Expr
-	Index     scanner.Token
-	Value     any
+	Index     Expr
+	Value     Expr
+	Token     scanner.Token
 	timestamp int64 // Unique field
 }
 
-func NewListSet(list Expr, index scanner.Token, value any) ListSet {
+func NewListSet(list Expr, index Expr, value Expr, token scanner.Token) ListSet {
 	return ListSet{
 		List:      list,
 		Index:     index,
 		Value:     value,
+		Token:     token,
 		timestamp: time.Now().UnixNano(),
 	}
 }
@@ -236,14 +238,16 @@ func (l ListSet) Accept(visitor VisitExpr) (any, error) {
 
 type ListGet struct {
 	List      Expr
-	Index     scanner.Token
+	Index     Expr
+	Token     scanner.Token
 	timestamp int64 // Unique field
 }
 
-func NewListGet(list Expr, index scanner.Token) ListGet {
+func NewListGet(list Expr, index Expr, token scanner.Token) ListGet {
 	return ListGet{
 		List:      list,
 		Index:     index,
+		Token:     token,
 		timestamp: time.Now().UnixNano(),
 	}
 }
@@ -252,15 +256,15 @@ func (l ListGet) Accept(visitor VisitExpr) (any, error) {
 	return visitor.VisitListGet(l)
 }
 
-type List struct {
+type ListExpr struct {
 	Literals     []Expr
 	LeftBracket  scanner.Token
 	RightBracket scanner.Token
 	timestamp    int64 // Unique field
 }
 
-func NewList(leftBracket scanner.Token, rightBracket scanner.Token, literals []Expr) List {
-	return List{
+func NewListExpr(leftBracket scanner.Token, rightBracket scanner.Token, literals []Expr) ListExpr {
+	return ListExpr{
 		LeftBracket:  leftBracket,
 		RightBracket: rightBracket,
 		Literals:     literals,
@@ -268,7 +272,7 @@ func NewList(leftBracket scanner.Token, rightBracket scanner.Token, literals []E
 	}
 }
 
-func (l List) Accept(visitor VisitExpr) (any, error) {
+func (l ListExpr) Accept(visitor VisitExpr) (any, error) {
 	return visitor.VisitListExpr(l)
 }
 

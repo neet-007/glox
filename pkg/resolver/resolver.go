@@ -265,14 +265,22 @@ func (r *Resolver) VisitGroupingExpr(expr parser.Grouping) (any, error) {
 }
 
 func (r *Resolver) VisitListSet(expr parser.ListSet) (any, error) {
+	r.resolveExpr(expr.List)
+	r.resolveExpr(expr.Index)
+	r.resolveExpr(expr.Value)
 	return nil, nil
 }
 
 func (r *Resolver) VisitListGet(expr parser.ListGet) (any, error) {
+	r.resolveExpr(expr.List)
+	r.resolveExpr(expr.Index)
 	return nil, nil
 }
 
-func (r *Resolver) VisitListExpr(expr parser.List) (any, error) {
+func (r *Resolver) VisitListExpr(expr parser.ListExpr) (any, error) {
+	for _, item := range expr.Literals {
+		r.resolveExpr(item)
+	}
 	return nil, nil
 }
 

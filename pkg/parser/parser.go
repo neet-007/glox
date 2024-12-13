@@ -411,7 +411,7 @@ func (p *Parser) assignment() (Expr, *ParseError) {
 		} else if exprGet, ok := expr.(Get); ok {
 			return NewSet(val, exprGet.Object, exprGet.Name), nil
 		} else if exprListGet, ok := expr.(ListGet); ok {
-			return NewListSet(exprListGet.List, exprListGet.Index, val), nil
+			return NewListSet(exprListGet.List, exprListGet.Index, val, exprListGet.Token), nil
 		}
 
 		return nil, newParseError(equal, "assigenmnt to invalid value")
@@ -575,16 +575,16 @@ func (p *Parser) call() (Expr, *ParseError) {
 }
 
 func (p *Parser) finishList(expr Expr) (Expr, *ParseError) {
-	index, parseErr := p.consume(scanner.NUMBER, "Expect number for index")
+	index, parseErr := p.expression()
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	_, parseErr = p.consume(scanner.RIGHT_BRACKET, "Expect ']' after index")
+	token, parseErr := p.consume(scanner.RIGHT_BRACKET, "Expect ']' after index")
 	if parseErr != nil {
 		return nil, parseErr
 	}
 
-	return NewListGet(expr, index), nil
+	return NewListGet(expr, index, token), nil
 }
 
 func (p *Parser) finishCall(expr Expr) (Expr, *ParseError) {
@@ -677,7 +677,7 @@ func (p *Parser) primary() (Expr, *ParseError) {
 			return nil, parseErr
 		}
 
-		return NewList(leftBracker, rightBracket, values), nil
+		return NewListExpr(leftBracker, rightBracket, values), nil
 	}
 	if p.match(scanner.LEFT_PAREN) {
 		expr, parseErr := p.expression()
